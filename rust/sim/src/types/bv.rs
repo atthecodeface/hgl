@@ -1,5 +1,5 @@
 //a Imports
-use crate::types::{U8Ops, BvData, IsBv, BitRange, BitRangeMut};
+use crate::types::{BitRange, BitRangeMut, BvData, IsBv, U8Ops};
 
 //a BvN
 //tp BvN
@@ -9,8 +9,7 @@ use crate::types::{U8Ops, BvData, IsBv, BitRange, BitRangeMut};
 /// If this type (with NB bits) has an implementation of 'IsBv' then
 /// *that* trait implementation describes the backing store data type
 /// to be used for such a vector
-pub struct BvN<const NB: usize> ();
-
+pub struct BvN<const NB: usize>();
 
 //a Bv
 //tp Bv
@@ -33,7 +32,7 @@ where
 }
 
 //ip Bv
-impl <const NB: usize> Bv<NB>
+impl<const NB: usize> Bv<NB>
 where
     BvN<{ NB }>: IsBv,
 {
@@ -58,36 +57,36 @@ where
     //mp bit
     /// Get a bit value
     #[track_caller]
-    pub fn bit(&self, n:usize) -> bool {
+    pub fn bit(&self, n: usize) -> bool {
         self.as_u8s().bit::<NB>(n)
     }
 
     //mp bit_set
     /// Set a bit value
     #[track_caller]
-    pub fn bit_set<I: Into<bool>>(&mut self, n:usize, v:I) {
+    pub fn bit_set<I: Into<bool>>(&mut self, n: usize, v: I) {
         self.as_u8s_mut().bit_set::<NB>(n, v.into())
     }
 
     //ap bit_range
-    pub fn bit_range(&self, lsb:usize, n:usize) -> BitRange<u8> {
+    pub fn bit_range(&self, lsb: usize, n: usize) -> BitRange<u8> {
         BitRange::of_u8s(self.as_u8s(), lsb, n)
     }
-  
-   //ap bit_range_mut
-    pub fn bit_range_mut(&mut self, lsb:usize, n:usize) -> BitRangeMut<u8> {
+
+    //ap bit_range_mut
+    pub fn bit_range_mut(&mut self, lsb: usize, n: usize) -> BitRangeMut<u8> {
         BitRangeMut::of_u8s(self.as_u8s_mut(), lsb, n)
     }
 
     //fp is_zero
     /// Return true if the value is zero
     pub fn is_zero(&self) -> bool {
-        self.as_u8s().iter().position(|x| *x!=0).is_none()
+        self.as_u8s().iter().position(|x| *x != 0).is_none()
     }
 }
 
 //ip Debug for Bv
-impl <const NB: usize> std::fmt::Debug for Bv<NB>
+impl<const NB: usize> std::fmt::Debug for Bv<NB>
 where
     BvN<{ NB }>: IsBv,
 {
@@ -101,7 +100,7 @@ where
 }
 
 //ip Deref for Bv - do we want this?
-impl <const NB: usize> std::ops::Deref for Bv<NB>
+impl<const NB: usize> std::ops::Deref for Bv<NB>
 where
     BvN<{ NB }>: IsBv,
 {
@@ -112,7 +111,7 @@ where
 }
 
 //ip DerefMut for Bv - do we want this?
-impl <const NB: usize> std::ops::DerefMut for Bv<NB>
+impl<const NB: usize> std::ops::DerefMut for Bv<NB>
 where
     BvN<{ NB }>: IsBv,
 {
@@ -122,7 +121,7 @@ where
 }
 
 //ip AsRef[u8] for Bv - do we want this?
-impl <const NB: usize> std::convert::AsRef<[u8]> for Bv<NB>
+impl<const NB: usize> std::convert::AsRef<[u8]> for Bv<NB>
 where
     BvN<{ NB }>: IsBv,
 {
@@ -132,7 +131,7 @@ where
 }
 
 //ip AsRefMut[u8] for Bv - do we want this?
-impl <const NB: usize> std::convert::AsMut<[u8]> for Bv<NB>
+impl<const NB: usize> std::convert::AsMut<[u8]> for Bv<NB>
 where
     BvN<{ NB }>: IsBv,
 {
@@ -142,7 +141,7 @@ where
 }
 
 //ip Not/Neg implementations
-impl <const NB: usize> std::ops::Not for Bv<NB>
+impl<const NB: usize> std::ops::Not for Bv<NB>
 where
     BvN<{ NB }>: IsBv,
 {
@@ -154,7 +153,7 @@ where
     }
 }
 
-impl <const NB: usize> std::ops::Neg for Bv<NB>
+impl<const NB: usize> std::ops::Neg for Bv<NB>
 where
     BvN<{ NB }>: IsBv,
 {
@@ -169,56 +168,94 @@ where
 //ip BitAnd/BitOr/BitXor/Add/Sub implementations
 macro_rules! bit_op {
     ($ts:ty, $tr:ty, $tsa:ty, $tra:ty, $fc:ident, $fa:ident, $op:ident) => {
-impl <const NB: usize> $ts for Bv<NB>
-where
-    BvN<{ NB }>: IsBv,
-{
-    type Output = Self;
-    fn $fc(self, other: Bv<NB>) -> Self {
-        let mut s = self;
-        s.$op::<NB>(&other);
-        s
-    }
+        impl<const NB: usize> $ts for Bv<NB>
+        where
+            BvN<{ NB }>: IsBv,
+        {
+            type Output = Self;
+            fn $fc(self, other: Bv<NB>) -> Self {
+                let mut s = self;
+                s.$op::<NB>(&other);
+                s
+            }
+        }
+        impl<const NB: usize> $tr for Bv<NB>
+        where
+            BvN<{ NB }>: IsBv,
+        {
+            type Output = Self;
+            fn $fc(self, other: &Bv<NB>) -> Self {
+                let mut s = self;
+                s.$op::<NB>(other);
+                s
+            }
+        }
+        impl<const NB: usize> $tsa for Bv<NB>
+        where
+            BvN<{ NB }>: IsBv,
+        {
+            fn $fa(&mut self, other: Bv<NB>) {
+                self.$op::<NB>(&other);
+            }
+        }
+        impl<const NB: usize> $tra for Bv<NB>
+        where
+            BvN<{ NB }>: IsBv,
+        {
+            fn $fa(&mut self, other: &Bv<NB>) {
+                self.$op::<NB>(other);
+            }
+        }
+    };
 }
-impl <const NB: usize> $tr for Bv<NB>
-where
-    BvN<{ NB }>: IsBv,
-{
-    type Output = Self;
-    fn $fc(self, other: &Bv<NB>) -> Self {
-        let mut s = self;
-        s.$op::<NB>(other);
-        s
-    }
-}
-impl <const NB: usize> $tsa for Bv<NB>
-where
-    BvN<{ NB }>: IsBv,
-{
-    fn $fa(&mut self, other: Bv<NB>) {
-        self.$op::<NB>(&other);
-    }
-}
-impl <const NB: usize> $tra for Bv<NB>
-where
-    BvN<{ NB }>: IsBv,
-{
-    fn $fa(&mut self, other: &Bv<NB>) {
-        self.$op::<NB>(other);
-    }
-}
-    }}
-bit_op!(std::ops::BitOr<Self>, std::ops::BitOr<&Self>, std::ops::BitOrAssign<Self>, std::ops::BitOrAssign<&Self>, bitor, bitor_assign, bit_or);
-bit_op!(std::ops::BitAnd<Self>, std::ops::BitAnd<&Self>, std::ops::BitAndAssign<Self>, std::ops::BitAndAssign<&Self>, bitand, bitand_assign, bit_and);
-bit_op!(std::ops::BitXor<Self>, std::ops::BitXor<&Self>, std::ops::BitXorAssign<Self>, std::ops::BitXorAssign<&Self>, bitxor, bitxor_assign, bit_xor);
-bit_op!(std::ops::Add<Self>, std::ops::Add<&Self>, std::ops::AddAssign<Self>, std::ops::AddAssign<&Self>, add, add_assign, add_msk);
-bit_op!(std::ops::Sub<Self>, std::ops::Sub<&Self>, std::ops::SubAssign<Self>, std::ops::SubAssign<&Self>, sub, sub_assign, sub_msk);
-
-
-
+bit_op!(
+    std::ops::BitOr<Self>,
+    std::ops::BitOr<&Self>,
+    std::ops::BitOrAssign<Self>,
+    std::ops::BitOrAssign<&Self>,
+    bitor,
+    bitor_assign,
+    bit_or
+);
+bit_op!(
+    std::ops::BitAnd<Self>,
+    std::ops::BitAnd<&Self>,
+    std::ops::BitAndAssign<Self>,
+    std::ops::BitAndAssign<&Self>,
+    bitand,
+    bitand_assign,
+    bit_and
+);
+bit_op!(
+    std::ops::BitXor<Self>,
+    std::ops::BitXor<&Self>,
+    std::ops::BitXorAssign<Self>,
+    std::ops::BitXorAssign<&Self>,
+    bitxor,
+    bitxor_assign,
+    bit_xor
+);
+bit_op!(
+    std::ops::Add<Self>,
+    std::ops::Add<&Self>,
+    std::ops::AddAssign<Self>,
+    std::ops::AddAssign<&Self>,
+    add,
+    add_assign,
+    add_msk
+);
+bit_op!(
+    std::ops::Sub<Self>,
+    std::ops::Sub<&Self>,
+    std::ops::SubAssign<Self>,
+    std::ops::SubAssign<&Self>,
+    sub,
+    sub_assign,
+    sub_msk
+);
 
 //ip Shl/Shr implementations
-impl <const NB: usize> std::ops::Shl<usize> for Bv<NB>
+impl<const NB: usize> std::ops::Shl<usize> for Bv<NB>
 where
     BvN<{ NB }>: IsBv,
 {
@@ -231,7 +268,7 @@ where
     }
 }
 
-impl <const NB: usize> std::ops::ShlAssign<usize> for Bv<NB>
+impl<const NB: usize> std::ops::ShlAssign<usize> for Bv<NB>
 where
     BvN<{ NB }>: IsBv,
 {
@@ -240,7 +277,7 @@ where
     }
 }
 
-impl <const NB: usize> std::ops::Shr<usize> for Bv<NB>
+impl<const NB: usize> std::ops::Shr<usize> for Bv<NB>
 where
     BvN<{ NB }>: IsBv,
 {
@@ -253,7 +290,7 @@ where
     }
 }
 
-impl <const NB: usize> std::ops::ShrAssign<usize> for Bv<NB>
+impl<const NB: usize> std::ops::ShrAssign<usize> for Bv<NB>
 where
     BvN<{ NB }>: IsBv,
 {

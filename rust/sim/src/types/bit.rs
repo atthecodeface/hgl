@@ -1,18 +1,21 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::ops::{Deref, DerefMut};
 
 #[derive(Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Bit (bool);
+pub struct Bit(bool);
 impl Bit {
-    pub const T : Self = Self(true);
-    pub const F : Self = Self(false);
-    
-    #[inline]
-    pub const fn is_true(&self) -> bool { self.0 }
+    pub const T: Self = Self(true);
+    pub const F: Self = Self(false);
 
     #[inline]
-    pub const fn is_false(&self) -> bool { !self.0 }
+    pub const fn is_true(&self) -> bool {
+        self.0
+    }
 
+    #[inline]
+    pub const fn is_false(&self) -> bool {
+        !self.0
+    }
 }
 
 impl std::ops::Not for Bit {
@@ -88,12 +91,12 @@ macro_rules! bit_op_assign {
     }
 }
 
-bit_op!{ std::ops::BitOr<Bit>, std::ops::BitOr<&Bit>, std::ops::BitOr<bool>, bitor, |}
-bit_op_assign!{ std::ops::BitOrAssign<Bit>, std::ops::BitOrAssign<&Bit>, std::ops::BitOrAssign<bool>, bitor_assign, |}
-bit_op!{ std::ops::BitAnd<Bit>, std::ops::BitAnd<&Bit>, std::ops::BitAnd<bool>, bitand, &}
-bit_op_assign!{ std::ops::BitAndAssign<Bit>, std::ops::BitAndAssign<&Bit>, std::ops::BitAndAssign<bool>, bitand_assign, &}
-bit_op!{ std::ops::BitXor<Bit>, std::ops::BitXor<&Bit>, std::ops::BitXor<bool>, bitxor, ^}
-bit_op_assign!{ std::ops::BitXorAssign<Bit>, std::ops::BitXorAssign<&Bit>, std::ops::BitXorAssign<bool>, bitxor_assign, ^}
+bit_op! { std::ops::BitOr<Bit>, std::ops::BitOr<&Bit>, std::ops::BitOr<bool>, bitor, |}
+bit_op_assign! { std::ops::BitOrAssign<Bit>, std::ops::BitOrAssign<&Bit>, std::ops::BitOrAssign<bool>, bitor_assign, |}
+bit_op! { std::ops::BitAnd<Bit>, std::ops::BitAnd<&Bit>, std::ops::BitAnd<bool>, bitand, &}
+bit_op_assign! { std::ops::BitAndAssign<Bit>, std::ops::BitAndAssign<&Bit>, std::ops::BitAndAssign<bool>, bitand_assign, &}
+bit_op! { std::ops::BitXor<Bit>, std::ops::BitXor<&Bit>, std::ops::BitXor<bool>, bitxor, ^}
+bit_op_assign! { std::ops::BitXorAssign<Bit>, std::ops::BitXorAssign<&Bit>, std::ops::BitXorAssign<bool>, bitxor_assign, ^}
 
 impl std::fmt::Debug for Bit {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
@@ -102,25 +105,28 @@ impl std::fmt::Debug for Bit {
 }
 
 impl std::hash::Hash for Bit {
-    fn hash<H>(&self, h: &mut H) where H: std::hash::Hasher {
+    fn hash<H>(&self, h: &mut H)
+    where
+        H: std::hash::Hasher,
+    {
         self.0.hash(h)
     }
 }
 
 impl From<bool> for Bit {
-    fn from(b:bool) -> Bit {
-        Self (b)
+    fn from(b: bool) -> Bit {
+        Self(b)
     }
 }
 
 impl From<Bit> for bool {
-    fn from(b:Bit) -> bool {
+    fn from(b: Bit) -> bool {
         b.0
     }
 }
 
-impl <'a> From<&'a Bit> for &'a bool {
-    fn from(b:&'a Bit) -> &'a bool {
+impl<'a> From<&'a Bit> for &'a bool {
+    fn from(b: &'a Bit) -> &'a bool {
         &b.0
     }
 }

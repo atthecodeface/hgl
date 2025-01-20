@@ -76,6 +76,3 @@ fn construct() -> Result<(), String> {
 
     Ok(())
 }
-
-
-    
