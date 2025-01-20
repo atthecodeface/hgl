@@ -161,7 +161,7 @@ where
     type Output = Self;
     fn neg(self) -> Self {
         let mut s = Self::default();
-        s.sub_msk(&self, NB);
+        s.sub_msk::<NB>(&self);
         s
     }
 }
@@ -176,7 +176,7 @@ where
     type Output = Self;
     fn $fc(self, other: Bv<NB>) -> Self {
         let mut s = self;
-        s.$op(&other, NB);
+        s.$op::<NB>(&other);
         s
     }
 }
@@ -187,7 +187,7 @@ where
     type Output = Self;
     fn $fc(self, other: &Bv<NB>) -> Self {
         let mut s = self;
-        s.$op(other, NB);
+        s.$op::<NB>(other);
         s
     }
 }
@@ -196,7 +196,7 @@ where
     BvN<{ NB }>: IsBv,
 {
     fn $fa(&mut self, other: Bv<NB>) {
-        self.$op(& other, NB);
+        self.$op::<NB>(&other);
     }
 }
 impl <const NB: usize> $tra for Bv<NB>
@@ -204,7 +204,7 @@ where
     BvN<{ NB }>: IsBv,
 {
     fn $fa(&mut self, other: &Bv<NB>) {
-        self.$op(other, NB);
+        self.$op::<NB>(other);
     }
 }
     }}

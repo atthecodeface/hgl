@@ -2,7 +2,7 @@ use crate::types::{IsBv, BvN, BvData};
 
 //ip BvData for u64
 #[inline]
-fn mask_u64(n:usize) -> u64 {
+const fn mask_u64(n:usize) -> u64 {
         if n>=64 {
             u64::MAX
         } else {
@@ -23,17 +23,19 @@ impl BvData for u64 {
         assert!(n <= 8, "[u8] for u64 must be no more than 8 bytes");
         unsafe { std::slice::from_raw_parts_mut(self as *mut u64 as *mut u8, n) }
     }
-    #[track_caller]
-    fn add_msk(&mut self, other:&Self, n:usize)  {
-        *self = (*self + *other) & mask_u64(n);
+    fn add_msk<const NB:usize>(&mut self, other:&Self)  {
+        *self = (*self + *other) & mask_u64(NB);
     }
-    fn bit_or(&mut self, other:&Self, _n:usize)  {
+    fn sub_msk<const NB:usize>(&mut self, other:&Self)  {
+        *self = (*self + *other) & mask_u64(NB);
+    }
+    fn bit_or<const NB:usize>(&mut self, other:&Self)  {
         *self = *self | *other;
     }
-    fn bit_and(&mut self, other:&Self, _n:usize)  {
+    fn bit_and<const NB:usize>(&mut self, other:&Self)  {
         *self = *self & *other;
     }
-    fn bit_xor(&mut self, other:&Self, _n:usize)  {
+    fn bit_xor<const NB:usize>(&mut self, other:&Self)  {
         *self = *self ^ *other;
     }
 }

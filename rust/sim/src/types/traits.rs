@@ -32,7 +32,8 @@ pub trait BvData : Sized + Copy + std::fmt::Debug + std::default::Default {
     fn zero(&mut self);
     fn as_u8s(&self, n:usize) -> &[u8];
     fn as_u8s_mut(&mut self, n:usize) -> &mut [u8];
-    fn bit_or(&mut self, other:&Self, mut n:usize)  {
+    fn bit_or<const NB:usize>(&mut self, other:&Self)  {
+        let mut n = NB;
         let s = self.as_u8s_mut((n+7)/8);
         let o = other.as_u8s((n+7)/8);
         for (sd,od) in s.iter_mut().zip(o.iter()) {
@@ -40,7 +41,8 @@ pub trait BvData : Sized + Copy + std::fmt::Debug + std::default::Default {
             n -= 8;
         }
     }
-    fn bit_and(&mut self, other:&Self, mut n:usize)  {
+    fn bit_and<const NB:usize>(&mut self, other:&Self)  {
+        let mut n = NB;
         let s = self.as_u8s_mut((n+7)/8);
         let o = other.as_u8s((n+7)/8);
         for (sd,od) in s.iter_mut().zip(o.iter()) {
@@ -48,7 +50,8 @@ pub trait BvData : Sized + Copy + std::fmt::Debug + std::default::Default {
             n -= 8;
         }
     }
-    fn bit_xor(&mut self, other:&Self, mut n:usize)  {
+    fn bit_xor<const NB:usize>(&mut self, other:&Self)  {
+        let mut n = NB;
         let s = self.as_u8s_mut((n+7)/8);
         let o = other.as_u8s((n+7)/8);
         for (sd,od) in s.iter_mut().zip(o.iter()) {
@@ -64,7 +67,8 @@ pub trait BvData : Sized + Copy + std::fmt::Debug + std::default::Default {
             n -= 8;
         }
     }
-    fn add_msk(&mut self, other:&Self, mut n:usize) {
+    fn add_msk<const NB:usize>(&mut self, other:&Self) {
+        let mut n = NB;
         let s = self.as_u8s_mut((n+7)/8);
         let o = other.as_u8s((n+7)/8);
         let mut c = 0;
@@ -75,7 +79,8 @@ pub trait BvData : Sized + Copy + std::fmt::Debug + std::default::Default {
             n -= 8;
         }
     }
-    fn sub_msk(&mut self, other:&Self, mut n:usize) {
+    fn sub_msk<const NB:usize>(&mut self, other:&Self) {
+        let mut n = NB;
         let s = self.as_u8s_mut((n+7)/8);
         let o = other.as_u8s((n+7)/8);
         let mut c = 1;
