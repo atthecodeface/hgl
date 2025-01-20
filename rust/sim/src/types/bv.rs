@@ -141,7 +141,7 @@ where
     }
 }
 
-//ip Not and Neg implementations
+//ip Not/Neg implementations
 impl <const NB: usize> std::ops::Not for Bv<NB>
 where
     BvN<{ NB }>: IsBv,
@@ -216,3 +216,48 @@ bit_op!(std::ops::Sub<Self>, std::ops::Sub<&Self>, std::ops::SubAssign<Self>, st
 
 
 
+
+//ip Shl/Shr implementations
+impl <const NB: usize> std::ops::Shl<usize> for Bv<NB>
+where
+    BvN<{ NB }>: IsBv,
+{
+    type Output = Self;
+
+    fn shl(self, rhs: usize) -> Self {
+        let mut s = self;
+        s.bit_shl::<NB>(rhs);
+        s
+    }
+}
+
+impl <const NB: usize> std::ops::ShlAssign<usize> for Bv<NB>
+where
+    BvN<{ NB }>: IsBv,
+{
+    fn shl_assign(&mut self, rhs: usize) {
+        self.bit_shl::<NB>(rhs);
+    }
+}
+
+impl <const NB: usize> std::ops::Shr<usize> for Bv<NB>
+where
+    BvN<{ NB }>: IsBv,
+{
+    type Output = Self;
+
+    fn shr(self, rhs: usize) -> Self {
+        let mut s = self;
+        s.bit_lshr::<NB>(rhs);
+        s
+    }
+}
+
+impl <const NB: usize> std::ops::ShrAssign<usize> for Bv<NB>
+where
+    BvN<{ NB }>: IsBv,
+{
+    fn shr_assign(&mut self, rhs: usize) {
+        self.bit_lshr::<NB>(rhs);
+    }
+}

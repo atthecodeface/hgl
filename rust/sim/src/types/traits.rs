@@ -1,3 +1,4 @@
+use crate::types::U8Ops;
 //tt IsBv
 /// Trait that describes the storage for a bit vector of NB bits with
 /// a specific backing store
@@ -83,6 +84,31 @@ pub trait BvData : Sized + Copy + std::fmt::Debug + std::default::Default {
             *sd = (v as u8) & mask_u8(n);
             c = if v>=256 {1} else {0};
             n -= 8;
+        }
+    }
+    fn bit_shl<const NB:usize>(&mut self, by:usize)  {
+        let s = self.as_u8s_mut((NB+7)/8);
+        if by < NB {
+            for i in 0..NB-by {
+                let j = NB-1-i;
+                let b = s.bit::<NB>(j-by);
+                s.bit_set::<NB>(j,b);
+            }
+        }
+        for i in 0..by {
+            s.bit_set::<NB>(i,false);
+        }
+    }
+    fn bit_lshr<const NB:usize>(&mut self, by:usize)  {
+        let s = self.as_u8s_mut((NB+7)/8);
+        if by < NB {
+            for i in 0..NB-by {
+                let b = s.bit::<NB>(i+by);
+                s.bit_set::<NB>(i,b);
+            }
+        }
+        for i in 0..by {
+            s.bit_set::<NB>(NB-1-i,false);
         }
     }
     fn to_bin(&self, n:usize) -> String {
