@@ -1,0 +1,21 @@
+[package]
+name = "hgl_sim"
+version = "0.1.0"
+edition = "2021"
+readme = "README.md"
+authors = ["Gavin J Stark"]
+description = "Rust simulation"
+homepage = "https://github.com/atthecodeface/card_games"
+documentation = "https://docs.rs/hgl/sim"
+keywords = ["gamedev"]
+categories = ["games"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/atthecodeface/card_games"
+
+[dependencies.serde]
+version = "1.0"
+features = ["derive"]
+
+[dependencies.thiserror]
+version = ">=1.0.61"
+
