@@ -10,24 +10,27 @@ const fn mask_u64(n: usize) -> u64 {
     }
 }
 impl BvData for u64 {
-    fn zero(&mut self) {
+    fn zero<const NB: usize>(&mut self) {
         *self = 0;
     }
-    #[track_caller]
-    fn as_u8s(&self, n: usize) -> &[u8] {
-        assert!(n <= 8, "[u8] for u64 must be no more than 8 bytes");
-        unsafe { std::slice::from_raw_parts(self as *const u64 as *const u8, n) }
+    fn as_u8s_unbounded(&self) -> &[u8] {
+        unsafe { std::slice::from_raw_parts(self as *const u64 as *const u8, 8) }
     }
     #[track_caller]
-    fn as_u8s_mut(&mut self, n: usize) -> &mut [u8] {
-        assert!(n <= 8, "[u8] for u64 must be no more than 8 bytes");
-        unsafe { std::slice::from_raw_parts_mut(self as *mut u64 as *mut u8, n) }
+    fn as_u8s<const NB: usize>(&self) -> &[u8] {
+        assert!(NB <= 64, "[u8] for u64 must be no more than 8 bytes");
+        unsafe { std::slice::from_raw_parts(self as *const u64 as *const u8, (NB+7)/8) }
+    }
+    #[track_caller]
+    fn as_u8s_mut<const NB: usize>(&mut self) -> &mut [u8] {
+        assert!(NB <= 64, "[u8] for u64 must be no more than 8 bytes");
+        unsafe { std::slice::from_raw_parts_mut(self as *mut u64 as *mut u8, (NB+7)/8) }
     }
     fn add_msk<const NB: usize>(&mut self, other: &Self) {
         *self = (*self + *other) & mask_u64(NB);
     }
     fn sub_msk<const NB: usize>(&mut self, other: &Self) {
-        *self = (*self + *other) & mask_u64(NB);
+        *self = (*self - *other) & mask_u64(NB);
     }
     fn bit_or<const NB: usize>(&mut self, other: &Self) {
         *self = *self | *other;

@@ -39,19 +39,19 @@ where
     //fi as_u8s
     /// Return a reference to the data as a u8 slice
     pub fn as_u8s(&self) -> &[u8] {
-        self.data.as_u8s(<BvN<{ NB }> as IsBv>::NU8)
+        self.data.as_u8s::<NB>()
     }
 
     //fi as_u8s
     /// Return a reference to the data as a u8 slice
     pub fn as_u8s_mut(&mut self) -> &mut [u8] {
-        self.data.as_u8s_mut(<BvN<{ NB }> as IsBv>::NU8)
+        self.data.as_u8s_mut::<NB>()
     }
 
     //mp zero
     /// Clear the bit vector
     pub fn zero(&mut self) {
-        self.data.zero();
+        self.data.zero::<NB>();
     }
 
     //mp bit

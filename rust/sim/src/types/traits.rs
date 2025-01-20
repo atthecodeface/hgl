@@ -1,4 +1,6 @@
+//a Imports
 use crate::types::U8Ops;
+//a Traits
 //tt IsBv
 /// Trait that describes the storage for a bit vector of NB bits with
 /// a specific backing store
@@ -29,13 +31,14 @@ fn mask_u8(n: usize) -> u8 {
 
 //tt BvData
 pub trait BvData: Sized + Copy + std::fmt::Debug + std::default::Default {
-    fn zero(&mut self);
-    fn as_u8s(&self, n: usize) -> &[u8];
-    fn as_u8s_mut(&mut self, n: usize) -> &mut [u8];
+    fn zero<const NB: usize>(&mut self);
+    fn as_u8s_unbounded(&self) -> &[u8];
+    fn as_u8s<const NB: usize>(&self) -> &[u8];
+    fn as_u8s_mut<const NB: usize>(&mut self) -> &mut [u8];
     fn bit_or<const NB: usize>(&mut self, other: &Self) {
         let mut n = NB;
-        let s = self.as_u8s_mut((n + 7) / 8);
-        let o = other.as_u8s((n + 7) / 8);
+        let s = self.as_u8s_mut::<NB>();
+        let o = other.as_u8s::<NB>();
         for (sd, od) in s.iter_mut().zip(o.iter()) {
             *sd = (*sd | *od) & mask_u8(n);
             n -= 8;
@@ -43,8 +46,8 @@ pub trait BvData: Sized + Copy + std::fmt::Debug + std::default::Default {
     }
     fn bit_and<const NB: usize>(&mut self, other: &Self) {
         let mut n = NB;
-        let s = self.as_u8s_mut((n + 7) / 8);
-        let o = other.as_u8s((n + 7) / 8);
+        let s = self.as_u8s_mut::<NB>();
+        let o = other.as_u8s::<NB>();
         for (sd, od) in s.iter_mut().zip(o.iter()) {
             *sd = (*sd & *od) & mask_u8(n);
             n -= 8;
@@ -52,8 +55,8 @@ pub trait BvData: Sized + Copy + std::fmt::Debug + std::default::Default {
     }
     fn bit_xor<const NB: usize>(&mut self, other: &Self) {
         let mut n = NB;
-        let s = self.as_u8s_mut((n + 7) / 8);
-        let o = other.as_u8s((n + 7) / 8);
+        let s = self.as_u8s_mut::<NB>();
+        let o = other.as_u8s::<NB>();
         for (sd, od) in s.iter_mut().zip(o.iter()) {
             *sd = (*sd ^ *od) & mask_u8(n);
             n -= 8;
@@ -61,7 +64,7 @@ pub trait BvData: Sized + Copy + std::fmt::Debug + std::default::Default {
     }
     fn bit_not<const NB: usize>(&mut self) {
         let mut n = NB;
-        let s = self.as_u8s_mut((NB + 7) / 8);
+        let s = self.as_u8s_mut::<NB>();
         for sd in s.iter_mut() {
             *sd = (!*sd) & mask_u8(n);
             n -= 8;
@@ -69,8 +72,8 @@ pub trait BvData: Sized + Copy + std::fmt::Debug + std::default::Default {
     }
     fn add_msk<const NB: usize>(&mut self, other: &Self) {
         let mut n = NB;
-        let s = self.as_u8s_mut((n + 7) / 8);
-        let o = other.as_u8s((n + 7) / 8);
+        let s = self.as_u8s_mut::<NB>();
+        let o = other.as_u8s::<NB>();
         let mut c = 0;
         for (sd, od) in s.iter_mut().zip(o.iter()) {
             let v = (*sd) as u16 + (*od) as u16 + c;
@@ -81,8 +84,8 @@ pub trait BvData: Sized + Copy + std::fmt::Debug + std::default::Default {
     }
     fn sub_msk<const NB: usize>(&mut self, other: &Self) {
         let mut n = NB;
-        let s = self.as_u8s_mut((n + 7) / 8);
-        let o = other.as_u8s((n + 7) / 8);
+        let s = self.as_u8s_mut::<NB>();
+        let o = other.as_u8s::<NB>();
         let mut c = 1;
         for (sd, od) in s.iter_mut().zip(o.iter()) {
             let v = (*sd) as u16 + (!*od) as u16 + c;
@@ -92,7 +95,7 @@ pub trait BvData: Sized + Copy + std::fmt::Debug + std::default::Default {
         }
     }
     fn bit_shl<const NB: usize>(&mut self, by: usize) {
-        let s = self.as_u8s_mut((NB + 7) / 8);
+        let s = self.as_u8s_mut::<NB>();
         if by < NB {
             for i in 0..NB - by {
                 let j = NB - 1 - i;
@@ -105,7 +108,7 @@ pub trait BvData: Sized + Copy + std::fmt::Debug + std::default::Default {
         }
     }
     fn bit_lshr<const NB: usize>(&mut self, by: usize) {
-        let s = self.as_u8s_mut((NB + 7) / 8);
+        let s = self.as_u8s_mut::<NB>();
         if by < NB {
             for i in 0..NB - by {
                 let b = s.bit::<NB>(i + by);
@@ -118,7 +121,7 @@ pub trait BvData: Sized + Copy + std::fmt::Debug + std::default::Default {
     }
     fn to_bin(&self, n: usize) -> String {
         let mut s = String::with_capacity(n);
-        let d = self.as_u8s((n + 7) / 8);
+        let d = self.as_u8s_unbounded();
         for i in 0..n {
             let j = n - 1 - i;
             let bv = (d[j >> 8] >> (j & 7)) & 1;
@@ -129,7 +132,7 @@ pub trait BvData: Sized + Copy + std::fmt::Debug + std::default::Default {
     fn to_hex(&self, n: usize) -> String {
         let nd = (n + 3) / 4;
         let mut s = String::with_capacity(nd);
-        let d = self.as_u8s((n + 7) / 8);
+        let d = self.as_u8s_unbounded();
         for i in 0..nd {
             let j = nd - 1 - i;
             let nv = if (j & 1) != 0 {
