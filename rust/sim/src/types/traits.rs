@@ -35,6 +35,14 @@ pub trait BvData: Sized + Copy + std::fmt::Debug + std::default::Default {
     fn as_u8s_unbounded(&self) -> &[u8];
     fn as_u8s<const NB: usize>(&self) -> &[u8];
     fn as_u8s_mut<const NB: usize>(&mut self) -> &mut [u8];
+    fn set_u64<const NB: usize>(&mut self, mut value: u64) {
+        let mut n = NB;
+        for sd in self.as_u8s_mut::<NB>().iter_mut() {
+            *sd = (value as u8) & mask_u8(n);
+            value >>= 8;
+            n -= 8;
+        }
+    }
     fn bit_or<const NB: usize>(&mut self, other: &Self) {
         let mut n = NB;
         let s = self.as_u8s_mut::<NB>();
@@ -143,5 +151,46 @@ pub trait BvData: Sized + Copy + std::fmt::Debug + std::default::Default {
             s.push(char::from_digit(nv as u32, 16).unwrap());
         }
         s
+    }
+}
+
+pub trait BvSim:
+    Sized
+    + Copy
+    + std::fmt::Debug
+    + std::default::Default
+    + std::ops::Not<Output = Self>
+    + std::ops::Neg<Output = Self>
+    + std::ops::BitAnd<Self, Output = Self>
+    + std::ops::BitAndAssign<Self>
+    + std::ops::BitOr<Self, Output = Self>
+    + std::ops::BitOrAssign<Self>
+    + std::ops::BitXor<Self, Output = Self>
+    + std::ops::BitXorAssign<Self>
+    + std::ops::Add<Self, Output = Self>
+    + std::ops::AddAssign<Self>
+    + std::ops::Sub<Self, Output = Self>
+    + std::ops::SubAssign<Self>
+    + std::ops::Shl<usize, Output = Self>
+    + std::ops::ShlAssign<usize>
+    + std::ops::Shr<usize, Output = Self>
+    + std::ops::ShrAssign<usize>
+{
+    fn num_bits(&self) -> usize;
+    fn set_u64(&mut self, mut value: u64) {
+        let mut n = self.num_bits();
+        for sd in self.as_u8s_mut().iter_mut() {
+            *sd = (value as u8) & mask_u8(n);
+            value >>= 8;
+            n -= 8;
+        }
+    }
+    fn as_u8s(&self) -> &[u8];
+    fn as_u8s_mut(&mut self) -> &mut [u8];
+    fn try_as_u64s(&self) -> Option<&[u64]> {
+        None
+    }
+    fn try_as_u64s_mut(&mut self) -> Option<&mut [u8]> {
+        None
     }
 }

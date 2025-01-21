@@ -1,26 +1,26 @@
 use crate::types::{BvData, BvN, IsBv};
 
 impl BvData for [u64; 1] {
-    fn zero<const NB:usize>(&mut self) {
+    fn zero<const NB: usize>(&mut self) {
         self[0] = 0;
     }
     fn as_u8s_unbounded(&self) -> &[u8] {
         unsafe { std::slice::from_raw_parts(self as *const u64 as *const u8, 8) }
     }
     #[track_caller]
-    fn as_u8s<const NB:usize>(&self) -> &[u8] {
+    fn as_u8s<const NB: usize>(&self) -> &[u8] {
         assert!(NB <= 64, "[u8] for u64 must be no more than 8 bytes");
-        unsafe { std::slice::from_raw_parts(self as *const u64 as *const u8, (NB+7)/8) }
+        unsafe { std::slice::from_raw_parts(self as *const u64 as *const u8, (NB + 7) / 8) }
     }
     #[track_caller]
-    fn as_u8s_mut<const NB:usize>(&mut self) -> &mut [u8] {
+    fn as_u8s_mut<const NB: usize>(&mut self) -> &mut [u8] {
         assert!(NB <= 64, "[u8] for u64 must be no more than 8 bytes");
-        unsafe { std::slice::from_raw_parts_mut(self as *mut u64 as *mut u8, (NB+7)/8) }
+        unsafe { std::slice::from_raw_parts_mut(self as *mut u64 as *mut u8, (NB + 7) / 8) }
     }
 }
 
 impl BvData for [u64; 2] {
-    fn zero<const NB:usize>(&mut self) {
+    fn zero<const NB: usize>(&mut self) {
         self[0] = 0;
         self[1] = 0;
     }
@@ -28,14 +28,14 @@ impl BvData for [u64; 2] {
         unsafe { std::slice::from_raw_parts(self as *const u64 as *const u8, 16) }
     }
     #[track_caller]
-    fn as_u8s<const NB:usize>(&self) -> &[u8] {
+    fn as_u8s<const NB: usize>(&self) -> &[u8] {
         assert!(NB <= 128, "[u8] for u64 must be no more than 16 bytes");
-        unsafe { std::slice::from_raw_parts(self as *const u64 as *const u8, (NB+7)/8) }
+        unsafe { std::slice::from_raw_parts(self as *const u64 as *const u8, (NB + 7) / 8) }
     }
     #[track_caller]
-    fn as_u8s_mut<const NB:usize>(&mut self) -> &mut [u8] {
+    fn as_u8s_mut<const NB: usize>(&mut self) -> &mut [u8] {
         assert!(NB <= 128, "[u8] for u64 must be no more than 16 bytes");
-        unsafe { std::slice::from_raw_parts_mut(self as *mut u64 as *mut u8, (NB+7)/8) }
+        unsafe { std::slice::from_raw_parts_mut(self as *mut u64 as *mut u8, (NB + 7) / 8) }
     }
 }
 

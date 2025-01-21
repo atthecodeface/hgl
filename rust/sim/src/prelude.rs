@@ -1,3 +1,3 @@
 use crate::types;
 
-pub use types::{Bit, Bv, BvN, IsBv};
+pub use types::{Bit, Bv, BvN, BvSim, IsBv};

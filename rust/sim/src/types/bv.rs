@@ -1,5 +1,5 @@
 //a Imports
-use crate::types::{BitRange, BitRangeMut, BvData, IsBv, U8Ops};
+use crate::types::{BitRange, BitRangeMut, BvData, BvSim, IsBv, U8Ops};
 
 //a BvN
 //tp BvN
@@ -296,5 +296,24 @@ where
 {
     fn shr_assign(&mut self, rhs: usize) {
         self.bit_lshr::<NB>(rhs);
+    }
+}
+
+//ip BvSim for Bv
+impl<const NB: usize> BvSim for Bv<NB>
+where
+    BvN<{ NB }>: IsBv,
+{
+    #[inline]
+    fn num_bits(&self) -> usize {
+        NB
+    }
+    #[inline]
+    fn as_u8s(&self) -> &[u8] {
+        self.data.as_u8s::<NB>()
+    }
+    #[inline]
+    fn as_u8s_mut(&mut self) -> &mut [u8] {
+        self.data.as_u8s_mut::<NB>()
     }
 }

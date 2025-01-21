@@ -9,5 +9,5 @@ mod u8_ops;
 pub use bit::Bit;
 pub use bit_range::{BitRange, BitRangeMut};
 pub use bv::{Bv, BvN};
-pub use traits::{BvData, IsBv};
+pub use traits::{BvData, BvSim, IsBv};
 pub(crate) use u8_ops::U8Ops;
