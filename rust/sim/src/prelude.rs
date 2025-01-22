@@ -1,3 +1,2 @@
-use crate::types;
-
-pub use types::{Bit, Bv, BvN, BvSim, IsBv};
+pub use crate::types::{Bit, Bv, BvN, IsBv};
+pub use crate::{SimArray, SimBit, SimBv, SimStruct};

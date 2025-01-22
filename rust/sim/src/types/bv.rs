@@ -1,5 +1,6 @@
 //a Imports
-use crate::types::{BitRange, BitRangeMut, BvData, BvSim, IsBv, U8Ops};
+use crate::types::{BitRange, BitRangeMut, BvData, IsBv, U8Ops};
+use crate::{SimBv, SimValue};
 
 //a BvN
 //tp BvN
@@ -163,7 +164,7 @@ where
     }
 }
 
-//ip Not/Neg implementations
+//ip Not implementations - note Neg would require Bv to be signed, and it is not
 impl<const NB: usize> std::ops::Not for Bv<NB>
 where
     BvN<{ NB }>: IsBv,
@@ -172,18 +173,6 @@ where
     fn not(self) -> Self {
         let mut s = self;
         s.data.bit_not::<NB>();
-        s
-    }
-}
-
-impl<const NB: usize> std::ops::Neg for Bv<NB>
-where
-    BvN<{ NB }>: IsBv,
-{
-    type Output = Self;
-    fn neg(self) -> Self {
-        let mut s = Self::default();
-        s.data.sub_msk::<NB>(&self.data);
         s
     }
 }
@@ -322,13 +311,34 @@ where
     }
 }
 
-//ip BvSim for Bv
-impl<const NB: usize> BvSim for Bv<NB>
+//ip SimValue for Bv
+impl<const NB: usize> SimValue for Bv<NB>
+where
+    BvN<{ NB }>: IsBv,
+{
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+//ip SimBv for Bv
+impl<const NB: usize> SimBv for Bv<NB>
 where
     BvN<{ NB }>: IsBv,
 {
     #[inline]
     fn num_bits(&self) -> usize {
         NB
+    }
+    fn as_u8s(&self) -> &[u8] {
+        self.data.as_u8s::<NB>()
+    }
+    fn as_u8s_mut(&mut self) -> &mut [u8] {
+        self.data.as_u8s_mut::<NB>()
+    }
+    fn signed_neg(self) -> Self {
+        let mut s = Self::default();
+        s.data.sub_msk::<NB>(&self.data);
+        s
     }
 }

@@ -2,29 +2,33 @@ use crate::types::{BvData, BvN, IsBv};
 
 //ip BvData for u64
 #[inline]
-const fn mask_u64(n: usize) -> u64 {
+const fn mask_u64(n: usize) -> std::num::Wrapping<u64> {
     if n >= 64 {
-        u64::MAX
+        std::num::Wrapping(u64::MAX)
     } else {
-        (1 << n) - 1
+        std::num::Wrapping((1 << n) - 1)
     }
 }
-impl BvData for u64 {
+impl BvData for std::num::Wrapping<u64> {
     fn zero<const NB: usize>(&mut self) {
-        *self = 0;
+        use std::num::Wrapping;
+        *self = Wrapping(0);
     }
     fn as_u8s_unbounded(&self) -> &[u8] {
-        unsafe { std::slice::from_raw_parts(self as *const u64 as *const u8, 8) }
+        use std::num::Wrapping;
+        unsafe { std::slice::from_raw_parts(self as *const Wrapping<u64> as *const u8, 8) }
     }
     #[track_caller]
     fn as_u8s<const NB: usize>(&self) -> &[u8] {
+        use std::num::Wrapping;
         assert!(NB <= 64, "[u8] for u64 must be no more than 8 bytes");
-        unsafe { std::slice::from_raw_parts(self as *const u64 as *const u8, (NB + 7) / 8) }
+        unsafe { std::slice::from_raw_parts(self as *const Wrapping<u64> as *const u8, (NB + 7) / 8) }
     }
     #[track_caller]
     fn as_u8s_mut<const NB: usize>(&mut self) -> &mut [u8] {
+        use std::num::Wrapping;
         assert!(NB <= 64, "[u8] for u64 must be no more than 8 bytes");
-        unsafe { std::slice::from_raw_parts_mut(self as *mut u64 as *mut u8, (NB + 7) / 8) }
+        unsafe { std::slice::from_raw_parts_mut(self as *mut Wrapping<u64> as *mut u8, (NB + 7) / 8) }
     }
     fn add_msk<const NB: usize>(&mut self, other: &Self) {
         *self = (*self + *other) & mask_u64(NB);
@@ -47,7 +51,7 @@ impl BvData for u64 {
 macro_rules! bv_int_uN {
     ($n:expr, $t:ty) => {
         impl IsBv for BvN<$n> {
-            type BackingStore = $t;
+            type BackingStore = std::num::Wrapping<$t>;
             const NB: usize = $n;
             const NU8: usize = ($n + 7) >> 3;
         }

@@ -1,5 +1,7 @@
 //a Imports
 use crate::types::U8Ops;
+use crate::utils;
+
 //a Traits
 //tt IsBv
 /// Trait that describes the storage for a bit vector of NB bits with
@@ -20,20 +22,6 @@ pub trait IsBv {
     const NU8: usize;
 }
 
-//fi mask_u8
-fn mask_u8(n: usize) -> u8 {
-    if n >= 8 {
-        255
-    } else {
-        (1 << n) - 1
-    }
-}
-
-//fi num_bytes
-const fn num_bytes(n: usize) -> usize {
-    (n + 7) / 8
-}
-
 //tt BvData
 pub trait BvData: Sized + Copy + std::fmt::Debug + std::hash::Hash + std::default::Default {
     //mp zero
@@ -44,20 +32,10 @@ pub trait BvData: Sized + Copy + std::fmt::Debug + std::hash::Hash + std::defaul
     fn as_u8s<const NB: usize>(&self) -> &[u8];
     fn as_u8s_mut<const NB: usize>(&mut self) -> &mut [u8];
 
-    //mp set_u64
-    fn set_u64<const NB: usize>(&mut self, mut value: u64) {
-        let mut n = NB;
-        for sd in self.as_u8s_mut::<NB>().iter_mut() {
-            *sd = (value as u8) & mask_u8(n);
-            value >>= 8;
-            n -= 8;
-        }
-    }
-
     //mp cmp
     fn cmp<const NB: usize>(&self, other: &Self) -> std::cmp::Ordering {
         use std::cmp::Ordering::*;
-        let nb = num_bytes(NB);
+        let nb = utils::num_u8_of_bits(NB);
         let s = self.as_u8s::<NB>();
         let o = other.as_u8s::<NB>();
         for i in (0..nb).rev() {
@@ -75,72 +53,60 @@ pub trait BvData: Sized + Copy + std::fmt::Debug + std::hash::Hash + std::defaul
 
     //mp bit_or
     fn bit_or<const NB: usize>(&mut self, other: &Self) {
-        let mut n = NB;
         let s = self.as_u8s_mut::<NB>();
         let o = other.as_u8s::<NB>();
-        for (sd, od) in s.iter_mut().zip(o.iter()) {
-            *sd = (*sd | *od) & mask_u8(n);
-            n -= 8;
+        for (i, m) in utils::iter_u8_of_bits(NB) {
+            s[i] |= o[i] & m;
         }
     }
 
     //mp bit_and
     fn bit_and<const NB: usize>(&mut self, other: &Self) {
-        let mut n = NB;
         let s = self.as_u8s_mut::<NB>();
         let o = other.as_u8s::<NB>();
-        for (sd, od) in s.iter_mut().zip(o.iter()) {
-            *sd = (*sd & *od) & mask_u8(n);
-            n -= 8;
+        for (i, _m) in utils::iter_u8_of_bits(NB) {
+            s[i] &= o[i];
         }
     }
 
     //mp bit_xor
     fn bit_xor<const NB: usize>(&mut self, other: &Self) {
-        let mut n = NB;
         let s = self.as_u8s_mut::<NB>();
         let o = other.as_u8s::<NB>();
-        for (sd, od) in s.iter_mut().zip(o.iter()) {
-            *sd = (*sd ^ *od) & mask_u8(n);
-            n -= 8;
+        for (i, m) in utils::iter_u8_of_bits(NB) {
+            s[i] ^= o[i] & m;
         }
     }
 
     //mp bit_not
     fn bit_not<const NB: usize>(&mut self) {
-        let mut n = NB;
         let s = self.as_u8s_mut::<NB>();
-        for sd in s.iter_mut() {
-            *sd = (!*sd) & mask_u8(n);
-            n -= 8;
+        for (i, m) in utils::iter_u8_of_bits(NB) {
+            s[i] = (!s[i]) & m;
         }
     }
 
     //mp add_msk
     fn add_msk<const NB: usize>(&mut self, other: &Self) {
-        let mut n = NB;
         let s = self.as_u8s_mut::<NB>();
         let o = other.as_u8s::<NB>();
         let mut c = 0;
-        for (sd, od) in s.iter_mut().zip(o.iter()) {
-            let v = (*sd) as u16 + (*od) as u16 + c;
-            *sd = (v as u8) & mask_u8(n);
+        for (i, m) in utils::iter_u8_of_bits(NB) {
+            let v = s[i] as u16 + o[i] as u16 + c;
+            s[i] = (v as u8) & m;
             c = if v >= 256 { 1 } else { 0 };
-            n -= 8;
         }
     }
 
     //mp sub_msk
     fn sub_msk<const NB: usize>(&mut self, other: &Self) {
-        let mut n = NB;
         let s = self.as_u8s_mut::<NB>();
         let o = other.as_u8s::<NB>();
         let mut c = 1;
-        for (sd, od) in s.iter_mut().zip(o.iter()) {
-            let v = (*sd) as u16 + (!*od) as u16 + c;
-            *sd = (v as u8) & mask_u8(n);
+        for (i, m) in utils::iter_u8_of_bits(NB) {
+            let v = s[i] as u16 + (!o[i]) as u16 + c;
+            s[i] = (v as u8) & m;
             c = if v >= 256 { 1 } else { 0 };
-            n -= 8;
         }
     }
 
@@ -201,88 +167,6 @@ pub trait BvData: Sized + Copy + std::fmt::Debug + std::hash::Hash + std::defaul
         }
         s
     }
-}
 
-//tt BvSim
-// Add Serialize, Deserialize
-//
-// Make into SimBv
-//
-// Split into SimValue which is first set of traits supported by Bit and Struct
-//
-// Trait supported by struct?
-//
-// Trait supported by array of things?
-pub trait BvSim:
-    Sized
-    + Copy
-    + std::fmt::Debug
-    + std::default::Default
-    + std::cmp::PartialEq
-    + std::cmp::Eq
-    + std::cmp::PartialOrd
-    + std::cmp::Ord
-    + std::hash::Hash
-    + std::convert::AsRef<[u8]>
-    + std::convert::AsMut<[u8]>
-    + std::ops::Not<Output = Self>
-    + std::ops::Neg<Output = Self>
-    + std::ops::BitAnd<Self, Output = Self>
-    + std::ops::BitAndAssign<Self>
-    + std::ops::BitOr<Self, Output = Self>
-    + std::ops::BitOrAssign<Self>
-    + std::ops::BitXor<Self, Output = Self>
-    + std::ops::BitXorAssign<Self>
-    + std::ops::Add<Self, Output = Self>
-    + std::ops::AddAssign<Self>
-    + std::ops::Sub<Self, Output = Self>
-    + std::ops::SubAssign<Self>
-    + std::ops::Shl<usize, Output = Self>
-    + std::ops::ShlAssign<usize>
-    + std::ops::Shr<usize, Output = Self>
-    + std::ops::ShrAssign<usize>
-{
-    //ap num_bits - return size of the data in number of bits
-    fn num_bits(&self) -> usize;
-
-    //ap set_u64 - set to a u64 value, usually for testing
-    fn set_u64(&mut self, mut value: u64) {
-        let mut n = self.num_bits();
-        let s = self.as_mut();
-        for sd in s.iter_mut() {
-            *sd = (value as u8) & mask_u8(n);
-            value >>= 8;
-            n -= 8;
-        }
-    }
-
-    //ap try_as_u64s
-    /// Return the data contents as a slice of u64, if possible given size and alignment
-    fn try_as_u64s(&self) -> Option<&[u64]> {
-        None
-    }
-
-    //ap try_as_u64s_mut
-    /// Return the data contents as a slice of u64, if possible given size and alignment
-    fn try_as_u64s_mut(&mut self) -> Option<&mut [u8]> {
-        None
-    }
-
-    //ap try_as_u64
-    fn try_as_u64(&self) -> Option<u64> {
-        if self.num_bits() > 64 {
-            None
-        } else if let Some(v) = self.try_as_u64s() {
-            Some(v[0])
-        } else {
-            let mut v = 0;
-            let mut n = 0;
-            let s = self.as_ref();
-            for sd in s.iter() {
-                v += ((*sd) as u64) << n;
-                n += 8;
-            }
-            Some(v)
-        }
-    }
+    //zz All done
 }
