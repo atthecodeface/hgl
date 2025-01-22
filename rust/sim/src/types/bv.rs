@@ -92,31 +92,10 @@ where
 {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         if NB < 8 {
-            write!(fmt, "{}b{}", NB, self.to_bin(NB))
+            write!(fmt, "{}b{}", NB, self.data.to_bin(NB))
         } else {
-            write!(fmt, "{}h{}", NB, self.to_hex(NB))
+            write!(fmt, "{}h{}", NB, self.data.to_hex(NB))
         }
-    }
-}
-
-//ip Deref for Bv - do we want this?
-impl<const NB: usize> std::ops::Deref for Bv<NB>
-where
-    BvN<{ NB }>: IsBv,
-{
-    type Target = <BvN<{ NB }> as IsBv>::BackingStore;
-    fn deref(&self) -> &<BvN<{ NB }> as IsBv>::BackingStore {
-        &self.data
-    }
-}
-
-//ip DerefMut for Bv - do we want this?
-impl<const NB: usize> std::ops::DerefMut for Bv<NB>
-where
-    BvN<{ NB }>: IsBv,
-{
-    fn deref_mut(&mut self) -> &mut <BvN<{ NB }> as IsBv>::BackingStore {
-        &mut self.data
     }
 }
 
@@ -192,7 +171,7 @@ where
     type Output = Self;
     fn not(self) -> Self {
         let mut s = self;
-        s.bit_not::<NB>();
+        s.data.bit_not::<NB>();
         s
     }
 }
@@ -204,7 +183,7 @@ where
     type Output = Self;
     fn neg(self) -> Self {
         let mut s = Self::default();
-        s.sub_msk::<NB>(&self);
+        s.data.sub_msk::<NB>(&self.data);
         s
     }
 }
@@ -219,7 +198,7 @@ macro_rules! bit_op {
             type Output = Self;
             fn $fc(self, other: Bv<NB>) -> Self {
                 let mut s = self;
-                s.$op::<NB>(&other);
+                s.data.$op::<NB>(&other.data);
                 s
             }
         }
@@ -230,7 +209,7 @@ macro_rules! bit_op {
             type Output = Self;
             fn $fc(self, other: &Bv<NB>) -> Self {
                 let mut s = self;
-                s.$op::<NB>(other);
+                s.data.$op::<NB>(&other.data);
                 s
             }
         }
@@ -239,7 +218,7 @@ macro_rules! bit_op {
             BvN<{ NB }>: IsBv,
         {
             fn $fa(&mut self, other: Bv<NB>) {
-                self.$op::<NB>(&other);
+                self.data.$op::<NB>(&other.data);
             }
         }
         impl<const NB: usize> $tra for Bv<NB>
@@ -247,7 +226,7 @@ macro_rules! bit_op {
             BvN<{ NB }>: IsBv,
         {
             fn $fa(&mut self, other: &Bv<NB>) {
-                self.$op::<NB>(other);
+                self.data.$op::<NB>(&other.data);
             }
         }
     };
@@ -307,7 +286,7 @@ where
 
     fn shl(self, rhs: usize) -> Self {
         let mut s = self;
-        s.bit_shl::<NB>(rhs);
+        s.data.bit_shl::<NB>(rhs);
         s
     }
 }
@@ -317,7 +296,7 @@ where
     BvN<{ NB }>: IsBv,
 {
     fn shl_assign(&mut self, rhs: usize) {
-        self.bit_shl::<NB>(rhs);
+        self.data.bit_shl::<NB>(rhs);
     }
 }
 
@@ -329,7 +308,7 @@ where
 
     fn shr(self, rhs: usize) -> Self {
         let mut s = self;
-        s.bit_lshr::<NB>(rhs);
+        s.data.bit_lshr::<NB>(rhs);
         s
     }
 }
@@ -339,7 +318,7 @@ where
     BvN<{ NB }>: IsBv,
 {
     fn shr_assign(&mut self, rhs: usize) {
-        self.bit_lshr::<NB>(rhs);
+        self.data.bit_lshr::<NB>(rhs);
     }
 }
 
@@ -351,13 +330,5 @@ where
     #[inline]
     fn num_bits(&self) -> usize {
         NB
-    }
-    #[inline]
-    fn as_u8s(&self) -> &[u8] {
-        self.data.as_u8s::<NB>()
-    }
-    #[inline]
-    fn as_u8s_mut(&mut self) -> &mut [u8] {
-        self.data.as_u8s_mut::<NB>()
     }
 }

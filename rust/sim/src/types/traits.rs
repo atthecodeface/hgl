@@ -223,6 +223,8 @@ pub trait BvSim:
     + std::cmp::PartialOrd
     + std::cmp::Ord
     + std::hash::Hash
+    + std::convert::AsRef<[u8]>
+    + std::convert::AsMut<[u8]>
     + std::ops::Not<Output = Self>
     + std::ops::Neg<Output = Self>
     + std::ops::BitAnd<Self, Output = Self>
@@ -246,20 +248,13 @@ pub trait BvSim:
     //ap set_u64 - set to a u64 value, usually for testing
     fn set_u64(&mut self, mut value: u64) {
         let mut n = self.num_bits();
-        for sd in self.as_u8s_mut().iter_mut() {
+        let s = self.as_mut();
+        for sd in s.iter_mut() {
             *sd = (value as u8) & mask_u8(n);
             value >>= 8;
             n -= 8;
         }
     }
-
-    //ap as_u8s
-    /// Return the data contents as a slice of u8
-    fn as_u8s(&self) -> &[u8];
-
-    //ap as_u8s_mut
-    /// Return the data contents as a mutable slice of u8
-    fn as_u8s_mut(&mut self) -> &mut [u8];
 
     //ap try_as_u64s
     /// Return the data contents as a slice of u64, if possible given size and alignment
@@ -282,7 +277,8 @@ pub trait BvSim:
         } else {
             let mut v = 0;
             let mut n = 0;
-            for sd in self.as_u8s().iter() {
+            let s = self.as_ref();
+            for sd in s.iter() {
                 v += ((*sd) as u64) << n;
                 n += 8;
             }
