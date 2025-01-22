@@ -29,12 +29,22 @@ fn mask_u8(n: usize) -> u8 {
     }
 }
 
+//fi num_bytes
+const fn num_bytes(n: usize) -> usize {
+    (n + 7) / 8
+}
+
 //tt BvData
-pub trait BvData: Sized + Copy + std::fmt::Debug + std::default::Default {
+pub trait BvData: Sized + Copy + std::fmt::Debug + std::hash::Hash + std::default::Default {
+    //mp zero
     fn zero<const NB: usize>(&mut self);
+
+    //ap as_u8s (plain, mut, unbounded
     fn as_u8s_unbounded(&self) -> &[u8];
     fn as_u8s<const NB: usize>(&self) -> &[u8];
     fn as_u8s_mut<const NB: usize>(&mut self) -> &mut [u8];
+
+    //mp set_u64
     fn set_u64<const NB: usize>(&mut self, mut value: u64) {
         let mut n = NB;
         for sd in self.as_u8s_mut::<NB>().iter_mut() {
@@ -43,6 +53,27 @@ pub trait BvData: Sized + Copy + std::fmt::Debug + std::default::Default {
             n -= 8;
         }
     }
+
+    //mp cmp
+    fn cmp<const NB: usize>(&self, other: &Self) -> std::cmp::Ordering {
+        use std::cmp::Ordering::*;
+        let nb = num_bytes(NB);
+        let s = self.as_u8s::<NB>();
+        let o = other.as_u8s::<NB>();
+        for i in (0..nb).rev() {
+            match s[i].cmp(&o[i]) {
+                Equal => {
+                    continue;
+                }
+                c => {
+                    return c;
+                }
+            }
+        }
+        Equal
+    }
+
+    //mp bit_or
     fn bit_or<const NB: usize>(&mut self, other: &Self) {
         let mut n = NB;
         let s = self.as_u8s_mut::<NB>();
@@ -52,6 +83,8 @@ pub trait BvData: Sized + Copy + std::fmt::Debug + std::default::Default {
             n -= 8;
         }
     }
+
+    //mp bit_and
     fn bit_and<const NB: usize>(&mut self, other: &Self) {
         let mut n = NB;
         let s = self.as_u8s_mut::<NB>();
@@ -61,6 +94,8 @@ pub trait BvData: Sized + Copy + std::fmt::Debug + std::default::Default {
             n -= 8;
         }
     }
+
+    //mp bit_xor
     fn bit_xor<const NB: usize>(&mut self, other: &Self) {
         let mut n = NB;
         let s = self.as_u8s_mut::<NB>();
@@ -70,6 +105,8 @@ pub trait BvData: Sized + Copy + std::fmt::Debug + std::default::Default {
             n -= 8;
         }
     }
+
+    //mp bit_not
     fn bit_not<const NB: usize>(&mut self) {
         let mut n = NB;
         let s = self.as_u8s_mut::<NB>();
@@ -78,6 +115,8 @@ pub trait BvData: Sized + Copy + std::fmt::Debug + std::default::Default {
             n -= 8;
         }
     }
+
+    //mp add_msk
     fn add_msk<const NB: usize>(&mut self, other: &Self) {
         let mut n = NB;
         let s = self.as_u8s_mut::<NB>();
@@ -90,6 +129,8 @@ pub trait BvData: Sized + Copy + std::fmt::Debug + std::default::Default {
             n -= 8;
         }
     }
+
+    //mp sub_msk
     fn sub_msk<const NB: usize>(&mut self, other: &Self) {
         let mut n = NB;
         let s = self.as_u8s_mut::<NB>();
@@ -102,6 +143,8 @@ pub trait BvData: Sized + Copy + std::fmt::Debug + std::default::Default {
             n -= 8;
         }
     }
+
+    //mp bit_shl
     fn bit_shl<const NB: usize>(&mut self, by: usize) {
         let s = self.as_u8s_mut::<NB>();
         if by < NB {
@@ -115,6 +158,8 @@ pub trait BvData: Sized + Copy + std::fmt::Debug + std::default::Default {
             s.bit_set::<NB>(i, false);
         }
     }
+
+    //mp bit_lshr
     fn bit_lshr<const NB: usize>(&mut self, by: usize) {
         let s = self.as_u8s_mut::<NB>();
         if by < NB {
@@ -127,6 +172,8 @@ pub trait BvData: Sized + Copy + std::fmt::Debug + std::default::Default {
             s.bit_set::<NB>(NB - 1 - i, false);
         }
     }
+
+    //mp to_bin
     fn to_bin(&self, n: usize) -> String {
         let mut s = String::with_capacity(n);
         let d = self.as_u8s_unbounded();
@@ -137,6 +184,8 @@ pub trait BvData: Sized + Copy + std::fmt::Debug + std::default::Default {
         }
         s
     }
+
+    //mp to_hex
     fn to_hex(&self, n: usize) -> String {
         let nd = (n + 3) / 4;
         let mut s = String::with_capacity(nd);
@@ -154,11 +203,26 @@ pub trait BvData: Sized + Copy + std::fmt::Debug + std::default::Default {
     }
 }
 
+//tt BvSim
+// Add Serialize, Deserialize
+//
+// Make into SimBv
+//
+// Split into SimValue which is first set of traits supported by Bit and Struct
+//
+// Trait supported by struct?
+//
+// Trait supported by array of things?
 pub trait BvSim:
     Sized
     + Copy
     + std::fmt::Debug
     + std::default::Default
+    + std::cmp::PartialEq
+    + std::cmp::Eq
+    + std::cmp::PartialOrd
+    + std::cmp::Ord
+    + std::hash::Hash
     + std::ops::Not<Output = Self>
     + std::ops::Neg<Output = Self>
     + std::ops::BitAnd<Self, Output = Self>
@@ -176,7 +240,10 @@ pub trait BvSim:
     + std::ops::Shr<usize, Output = Self>
     + std::ops::ShrAssign<usize>
 {
+    //ap num_bits - return size of the data in number of bits
     fn num_bits(&self) -> usize;
+
+    //ap set_u64 - set to a u64 value, usually for testing
     fn set_u64(&mut self, mut value: u64) {
         let mut n = self.num_bits();
         for sd in self.as_u8s_mut().iter_mut() {
@@ -185,12 +252,41 @@ pub trait BvSim:
             n -= 8;
         }
     }
+
+    //ap as_u8s
+    /// Return the data contents as a slice of u8
     fn as_u8s(&self) -> &[u8];
+
+    //ap as_u8s_mut
+    /// Return the data contents as a mutable slice of u8
     fn as_u8s_mut(&mut self) -> &mut [u8];
+
+    //ap try_as_u64s
+    /// Return the data contents as a slice of u64, if possible given size and alignment
     fn try_as_u64s(&self) -> Option<&[u64]> {
         None
     }
+
+    //ap try_as_u64s_mut
+    /// Return the data contents as a slice of u64, if possible given size and alignment
     fn try_as_u64s_mut(&mut self) -> Option<&mut [u8]> {
         None
+    }
+
+    //ap try_as_u64
+    fn try_as_u64(&self) -> Option<u64> {
+        if self.num_bits() > 64 {
+            None
+        } else if let Some(v) = self.try_as_u64s() {
+            Some(v[0])
+        } else {
+            let mut v = 0;
+            let mut n = 0;
+            for sd in self.as_u8s().iter() {
+                v += ((*sd) as u64) << n;
+                n += 8;
+            }
+            Some(v)
+        }
     }
 }

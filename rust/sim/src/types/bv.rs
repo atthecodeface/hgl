@@ -42,7 +42,7 @@ where
         self.data.as_u8s::<NB>()
     }
 
-    //fi as_u8s
+    //fi as_u8s_mut
     /// Return a reference to the data as a u8 slice
     pub fn as_u8s_mut(&mut self) -> &mut [u8] {
         self.data.as_u8s_mut::<NB>()
@@ -137,6 +137,50 @@ where
 {
     fn as_mut(&mut self) -> &mut [u8] {
         self.as_u8s_mut()
+    }
+}
+
+//ip PartialEq/Eq implementations
+impl<const NB: usize> std::cmp::PartialEq for Bv<NB>
+where
+    BvN<{ NB }>: IsBv,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.cmp(other) == std::cmp::Ordering::Equal
+    }
+}
+
+impl<const NB: usize> std::cmp::Eq for Bv<NB> where BvN<{ NB }>: IsBv {}
+
+//ip PartialOrd/Ord implementations
+impl<const NB: usize> std::cmp::PartialOrd for Bv<NB>
+where
+    BvN<{ NB }>: IsBv,
+{
+    fn partial_cmp(&self, other: &Self) -> std::option::Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl<const NB: usize> std::cmp::Ord for Bv<NB>
+where
+    BvN<{ NB }>: IsBv,
+{
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.data.cmp::<NB>(&other.data)
+    }
+}
+
+//ip Hash implementation
+impl<const NB: usize> std::hash::Hash for Bv<NB>
+where
+    BvN<{ NB }>: IsBv,
+{
+    fn hash<H>(&self, h: &mut H)
+    where
+        H: std::hash::Hasher,
+    {
+        self.data.hash(h)
     }
 }
 

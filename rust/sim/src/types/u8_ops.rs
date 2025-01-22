@@ -1,4 +1,4 @@
-pub(crate) trait U8Ops {
+pub trait U8Ops {
     fn bit<const NB: usize>(&self, n: usize) -> bool;
     fn bit_set<const NB: usize>(&mut self, n: usize, v: bool);
 }
