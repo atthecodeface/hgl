@@ -1,4 +1,7 @@
+//a Imports
 use crate::utils;
+use crate::types::{BitRange, BitRangeMut};
+use crate::types::U8Ops;
 
 //a Traits
 //tt SimValue
@@ -119,10 +122,21 @@ pub trait SimBv:
 
     //ap as_u8s
     /// Return the data contents as a slice of u8
+    ///
+    /// This cannot fail
     fn as_u8s(&self) -> &[u8];
+
+    //ap as_u8s
+    /// Return the data contents as a mutable slice of u8
+    ///
+    /// This cannot fail
     fn as_u8s_mut(&mut self) -> &mut [u8];
 
+    //mp signed_neg
+    /// Treating the value as signed, perform a two's complement
+    /// negation
     fn signed_neg(self) -> Self;
+    
     //ap try_as_u64s
     /// Return the data contents as a slice of u64, if possible given size and alignment
     fn try_as_u64s(&self) -> Option<&[u64]> {
@@ -151,6 +165,47 @@ pub trait SimBv:
             }
             Some(v)
         }
+    }
+
+    //mp bit
+    /// Get a bit value
+    #[track_caller]
+    fn bit(&self, n: usize) -> bool {
+        self.as_u8s().bit_nb_rt(n)
+    }
+
+    //mp bit_set
+    /// Set a bit value
+    #[track_caller]
+    fn bit_set<I: Into<bool>>(&mut self, n: usize, v: I) {
+        self.as_u8s_mut().bit_set_nb_rt(n, v.into())
+    }
+
+    //ap bit_range
+    /// Return an immutable bit range (as a [BitRange]) using n bits
+    /// starting at the specified lsb
+    ///
+    /// Panics if lsb+n is bigger than the vector size
+    #[track_caller]
+    fn bits(&self, lsb: usize, n: usize) -> BitRange<u8> {
+        assert!(lsb + n <= self.num_bits(), "Bit selection outside the size of the bit vector");
+        BitRange::of_u8s(self.as_u8s(), lsb, n)
+    }
+
+    //ap bits_mut
+    /// Return a mutable bit range (as a [BitRangeMut]) using n bits
+    /// starting at the specified lsb
+    ///
+    /// Panics if lsb+n is bigger than the vector size
+    fn bits_mut(&mut self, lsb: usize, n: usize) -> BitRangeMut<u8> {
+        assert!(lsb + n <= self.num_bits(), "Bit selection outside the size of the bit vector");
+        BitRangeMut::of_u8s(self.as_u8s_mut(), lsb, n)
+    }
+
+    //fp is_zero
+    /// Return true if the value is zero
+    fn is_zero(&self) -> bool {
+        self.as_u8s().iter().position(|x| *x != 0).is_none()
     }
 
     //zz All done
