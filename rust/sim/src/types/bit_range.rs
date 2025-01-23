@@ -1,7 +1,6 @@
 //a Imports
 use crate::types::U8Ops;
 
-
 //a BitRange
 //tp BitRange
 /// A selections of bits from within a slice (e.g. of u8)
@@ -29,15 +28,15 @@ where
 }
 
 //ip From<BitRangeMut> for BitRange
-impl <'a, D> From<BitRangeMut<'a, D>> for BitRange<'a, D>
+impl<'a, D> From<BitRangeMut<'a, D>> for BitRange<'a, D>
 where
     [D]: U8Ops,
 {
-    fn from(f:BitRangeMut<'a, D>) -> BitRange<'a, D> {
+    fn from(f: BitRangeMut<'a, D>) -> BitRange<'a, D> {
         Self {
             lsb: f.lsb,
             n: f.n,
-            data: f.data
+            data: f.data,
         }
     }
 }

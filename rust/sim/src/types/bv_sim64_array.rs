@@ -9,7 +9,7 @@ macro_rules! bv_data_for_std_array {
                 }
             }
             fn as_u8s_unbounded(&self) -> &[u8] {
-                unsafe { std::slice::from_raw_parts(self as *const $t as *const u8, $bpt*$n) }
+                unsafe { std::slice::from_raw_parts(self as *const $t as *const u8, $bpt * $n) }
             }
             #[track_caller]
             fn as_u8s<const NB: usize>(&self) -> &[u8] {
@@ -20,7 +20,7 @@ macro_rules! bv_data_for_std_array {
                 unsafe { std::slice::from_raw_parts_mut(self as *mut $t as *mut u8, (NB + 7) / 8) }
             }
         }
-    }
+    };
 }
 
 bv_data_for_std_array!(1, u64, 64);

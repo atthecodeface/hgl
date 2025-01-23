@@ -54,7 +54,7 @@ pub const fn num_u64_of_bits(num_bits: usize) -> usize {
 pub fn iter_u64_of_bits(num_bits: usize) -> impl std::iter::Iterator<Item = (usize, u64)> {
     let n = num_u64_of_bits(num_bits);
     (0..n).map(move |i| {
-        if i+1 < n {
+        if i + 1 < n {
             (i, u64::MAX)
         } else {
             (i, mask_u64_zero_all(num_bits & 63))
@@ -66,7 +66,7 @@ pub fn iter_u64_of_bits(num_bits: usize) -> impl std::iter::Iterator<Item = (usi
 pub fn iter_u8_of_bits(num_bits: usize) -> impl std::iter::Iterator<Item = (usize, u8)> {
     let n = num_u8_of_bits(num_bits);
     (0..n).map(move |i| {
-        if i+1 < n {
+        if i + 1 < n {
             (i, u8::MAX)
         } else {
             (i, mask_u8_zero_all(num_bits & 7))

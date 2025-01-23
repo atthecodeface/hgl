@@ -1,5 +1,17 @@
 //a Imports
-use crate::{SimBv, SimValue};
+use crate::{SimBit, SimBv, SimValue};
+
+//a Trait impls for bool
+impl SimValue for bool {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+impl SimBit for bool {
+    fn randomize<F: FnMut() -> u64>(f: &mut F) -> bool {
+        f() & 1 == 1
+    }
+}
 
 //a Macro for trait impl SimValue
 macro_rules! impl_sim_value {

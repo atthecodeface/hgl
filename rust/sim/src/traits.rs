@@ -1,7 +1,7 @@
 //a Imports
-use crate::utils;
-use crate::types::{BitRange, BitRangeMut};
 use crate::types::U8Ops;
+use crate::types::{BitRange, BitRangeMut};
+use crate::utils;
 
 //a Traits
 //tt SimValue
@@ -50,8 +50,9 @@ pub trait SimBit:
     + std::ops::BitXorAssign<Self>
     + for<'a> std::ops::BitXor<&'a Self, Output = Self>
     + for<'a> std::ops::BitXorAssign<&'a Self>
+    + From<bool>
 {
-    fn randomize<F: FnMut() -> u64>(f: &F) -> Self;
+    fn randomize<F: FnMut() -> u64>(f: &mut F) -> Self;
 }
 
 //tt SimBv
@@ -136,7 +137,7 @@ pub trait SimBv:
     /// Treating the value as signed, perform a two's complement
     /// negation
     fn signed_neg(self) -> Self;
-    
+
     //ap try_as_u64s
     /// Return the data contents as a slice of u64, if possible given size and alignment
     fn try_as_u64s(&self) -> Option<&[u64]> {
@@ -188,7 +189,10 @@ pub trait SimBv:
     /// Panics if lsb+n is bigger than the vector size
     #[track_caller]
     fn bits(&self, lsb: usize, n: usize) -> BitRange<u8> {
-        assert!(lsb + n <= self.num_bits(), "Bit selection outside the size of the bit vector");
+        assert!(
+            lsb + n <= self.num_bits(),
+            "Bit selection outside the size of the bit vector"
+        );
         BitRange::of_u8s(self.as_u8s(), lsb, n)
     }
 
@@ -198,7 +202,10 @@ pub trait SimBv:
     ///
     /// Panics if lsb+n is bigger than the vector size
     fn bits_mut(&mut self, lsb: usize, n: usize) -> BitRangeMut<u8> {
-        assert!(lsb + n <= self.num_bits(), "Bit selection outside the size of the bit vector");
+        assert!(
+            lsb + n <= self.num_bits(),
+            "Bit selection outside the size of the bit vector"
+        );
         BitRangeMut::of_u8s(self.as_u8s_mut(), lsb, n)
     }
 

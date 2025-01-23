@@ -22,13 +22,17 @@ impl BvData for std::num::Wrapping<u64> {
     fn as_u8s<const NB: usize>(&self) -> &[u8] {
         use std::num::Wrapping;
         assert!(NB <= 64, "[u8] for u64 must be no more than 8 bytes");
-        unsafe { std::slice::from_raw_parts(self as *const Wrapping<u64> as *const u8, (NB + 7) / 8) }
+        unsafe {
+            std::slice::from_raw_parts(self as *const Wrapping<u64> as *const u8, (NB + 7) / 8)
+        }
     }
     #[track_caller]
     fn as_u8s_mut<const NB: usize>(&mut self) -> &mut [u8] {
         use std::num::Wrapping;
         assert!(NB <= 64, "[u8] for u64 must be no more than 8 bytes");
-        unsafe { std::slice::from_raw_parts_mut(self as *mut Wrapping<u64> as *mut u8, (NB + 7) / 8) }
+        unsafe {
+            std::slice::from_raw_parts_mut(self as *mut Wrapping<u64> as *mut u8, (NB + 7) / 8)
+        }
     }
     fn add_msk<const NB: usize>(&mut self, other: &Self) {
         *self = (*self + *other) & mask_u64(NB);
