@@ -6,7 +6,6 @@ pub(crate) mod utils;
 pub use traits::{SimArray, SimBit, SimBv, SimStruct, SimValue};
 
 mod simulation;
-pub use simulation::SimHandle;
-pub use simulation::SimRegister;
 pub use simulation::{Component, ComponentBuilder, Simulatable};
-pub use simulation::{EdgeUse, FullName, Simulation};
+pub use simulation::{EdgeUse, FullName, SimReset, Simulation};
+pub use simulation::{SimHandle, SimRegister};
