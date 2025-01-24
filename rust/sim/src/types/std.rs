@@ -1,12 +1,20 @@
 //a Imports
-use crate::{SimBit, SimBv, SimValue};
+use crate::utils;
+use crate::{SimBit, SimBv, SimValue, SimValueObject};
 
 //a Trait impls for bool
-impl SimValue for bool {
+impl SimValueObject for bool {
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
+    fn try_as_u8s(&self) -> Option<&[u8]> {
+        Some(unsafe { utils::as_u8s(self) })
+    }
+    fn try_as_u8s_mut(&mut self) -> Option<&mut [u8]> {
+        Some(unsafe { utils::as_u8s_mut(self) })
+    }
 }
+impl SimValue for bool {}
 impl SimBit for bool {
     fn randomize<F: FnMut() -> u64>(f: &mut F) -> bool {
         f() & 1 == 1
@@ -16,11 +24,18 @@ impl SimBit for bool {
 //a Macro for trait impl SimValue
 macro_rules! impl_sim_value {
     ($t:ty, $nb:expr) => {
-        impl SimValue for std::num::Wrapping<$t> {
+        impl SimValueObject for std::num::Wrapping<$t> {
             fn as_any(&self) -> &dyn std::any::Any {
                 self
             }
+            fn try_as_u8s(&self) -> Option<&[u8]> {
+                Some(unsafe { utils::as_u8s(self) })
+            }
+            fn try_as_u8s_mut(&mut self) -> Option<&mut [u8]> {
+                Some(unsafe { utils::as_u8s_mut(self) })
+            }
         }
+        impl SimValue for std::num::Wrapping<$t> {}
     };
 }
 

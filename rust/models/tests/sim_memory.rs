@@ -23,6 +23,7 @@ fn sim_memory() -> Result<(), String> {
         let inputs = mem.inputs_mut();
         inputs.read_enable |= true;
     }
+    // mem : RefMutInstance<Mem32x32>
     let mut mem = sim.inst_mut::<Mem32x31>(mem1);
     mem.inputs_mut().read_enable &= false;
     mem.clock(1);
@@ -51,6 +52,25 @@ fn sim_memory() -> Result<(), String> {
         724,
         "Read data should be value written"
     );
+
+    let mut x = mem.inputs_mut().address;
+    x += x;
+    let port_data_address = mem.try_state_data(0).unwrap();
+    assert_eq!(
+        port_data_address.value().try_as_u8s().unwrap(),
+        [3, 0, 0, 0, 0, 0, 0, 0]
+    );
+    let mut port_data_address = mem.try_state_data_mut(0).unwrap();
+    assert!(
+        port_data_address.set_u8s(x.try_as_u8s().unwrap()),
+        "Should correctly set data"
+    );
+    assert_eq!(
+        port_data_address.value().try_as_u8s().unwrap(),
+        [6, 0, 0, 0, 0, 0, 0, 0]
+    );
+
+    // assert!(false);
 
     Ok(())
 }

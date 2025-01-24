@@ -1,6 +1,7 @@
 //a Imports
 use crate::types::{BitRange, BitRangeMut, BvData, IsBv, U8Ops};
-use crate::{SimBv, SimValue};
+use crate::utils;
+use crate::{SimBv, SimValue, SimValueObject};
 
 //a BvN
 //tp BvN
@@ -311,15 +312,24 @@ where
     }
 }
 
-//ip SimValue for Bv
-impl<const NB: usize> SimValue for Bv<NB>
+//ip SimValueObject for Bv
+impl<const NB: usize> SimValueObject for Bv<NB>
 where
     BvN<{ NB }>: IsBv,
 {
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
+    fn try_as_u8s(&self) -> Option<&[u8]> {
+        Some(unsafe { utils::as_u8s(&self.data) })
+    }
+    fn try_as_u8s_mut(&mut self) -> Option<&mut [u8]> {
+        Some(unsafe { utils::as_u8s_mut(&mut self.data) })
+    }
 }
+
+//ip SimValue for Bv
+impl<const NB: usize> SimValue for Bv<NB> where BvN<{ NB }>: IsBv {}
 
 //ip SimBv for Bv
 impl<const NB: usize> SimBv for Bv<NB>

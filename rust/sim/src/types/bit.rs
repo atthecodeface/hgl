@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 use std::ops::{Deref, DerefMut};
 
+use crate::utils;
+use crate::{SimValue, SimValueObject};
+
 #[derive(Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Bit(bool);
 impl Bit {
@@ -162,3 +165,19 @@ impl std::ops::DerefMut for Bit {
         &mut self.0
     }
 }
+
+//ip SimValueObject for Bit
+impl SimValueObject for Bit {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn try_as_u8s(&self) -> Option<&[u8]> {
+        Some(unsafe { utils::as_u8s(&self.0) })
+    }
+    fn try_as_u8s_mut(&mut self) -> Option<&mut [u8]> {
+        Some(unsafe { utils::as_u8s_mut(&mut self.0) })
+    }
+}
+
+//ip SimValue for Bit
+impl SimValue for Bit {}

@@ -88,9 +88,9 @@ impl Instance {
                 break;
             }
             if enum_inputs {
-                if let Some((name, is_clock)) = component.port_info(false, i) {
-                    let name = sim.add_name(name);
-                    if is_clock {
+                if let Some(port_info) = component.port_info(false, i) {
+                    let name = sim.add_name(port_info.name());
+                    if port_info.is_clock() {
                         self.ports.borrow_mut().insert(name, Port::clock(i));
                     } else {
                         self.ports.borrow_mut().insert(name, Port::input(i));
@@ -100,8 +100,8 @@ impl Instance {
                 }
             }
             if enum_outputs {
-                if let Some((name, _is_clock)) = component.port_info(true, i) {
-                    let name = sim.add_name(name);
+                if let Some(port_info) = component.port_info(true, i) {
+                    let name = sim.add_name(port_info.name());
                     self.ports.borrow_mut().insert(name, Port::output(i));
                 } else {
                     enum_outputs = false;
@@ -134,7 +134,7 @@ impl<C: Component + 'static> std::ops::DerefMut for RefMutInstance<'_, C> {
     }
 }
 
-//a RefInstancep
+//a RefInstance
 //tp RefInstance
 pub struct RefInstance<'a, C: Component + 'static> {
     l: RwLockReadGuard<'a, Box<dyn Simulatable + 'static>>,

@@ -10,7 +10,7 @@ mod traits;
 pub use clock::{ClockArray, ClockIndex};
 pub use instance::{InstanceArray, InstanceHandle, RefInstance, RefMutInstance};
 pub use names::{Name, Names, NamespaceStack, SimNsName};
-pub use port::Port;
+pub use port::{Port, PortData, PortDataMut, PortInfo};
 pub use simulation::Simulation;
 pub use traits::{Component, ComponentBuilder, Simulatable};
 pub use traits::{SimHandle, SimRegister};

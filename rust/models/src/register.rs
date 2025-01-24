@@ -36,13 +36,13 @@ where
     outputs: Outputs<V>,
 }
 
-const INPUT_PORTS: &[(&str, bool)] = &[
-    ("clk", true),
-    ("reset_n", false),
-    ("enable", false),
-    ("data", false),
+const INPUT_PORTS: &[PortInfo] = &[
+    PortInfo::clk("clk"),
+    PortInfo::data("reset_n"),
+    PortInfo::data("enable"),
+    PortInfo::data("data"),
 ];
-const OUTPUT_PORTS: &[(&str, bool)] = &[("data", false)];
+const OUTPUT_PORTS: &[PortInfo] = &[PortInfo::data("data")];
 
 //ip Register
 impl<V> Register<V>
@@ -122,11 +122,18 @@ where
     type InputsMut<'a> = &'a mut Inputs<V>;
     type Inputs<'a> = &'a Inputs<V>;
     type Outputs<'a> = &'a Outputs<V>;
-    fn port_info(&self, output: bool, index: usize) -> Option<(&str, bool)> {
+    fn port_info(&self, output: bool, index: usize) -> Option<PortInfo> {
         if output {
             OUTPUT_PORTS.get(index).copied()
         } else {
             INPUT_PORTS.get(index).copied()
+        }
+    }
+    fn try_state_data(&self, index: usize) -> Option<PortData> {
+        if index == 0 {
+            Some(PortData::of(&self.inputs.enable))
+        } else {
+            None
         }
     }
     fn inputs(&self) -> &Inputs<V> {

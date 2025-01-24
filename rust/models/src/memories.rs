@@ -33,14 +33,14 @@ where
     outputs: Outputs<V>,
 }
 
-const INPUT_PORTS: &[(&str, bool)] = &[
-    ("clk", true),
-    ("read_enable", false),
-    ("write_enable", false),
-    ("address", false),
-    ("write_data", false),
+const INPUT_PORTS: &[PortInfo] = &[
+    PortInfo::clk("clk"),
+    PortInfo::data("read_enable"),
+    PortInfo::data("write_enable"),
+    PortInfo::data("address"),
+    PortInfo::data("write_data"),
 ];
-const OUTPUT_PORTS: &[(&str, bool)] = &[("read_value", false), ("read_data", false)];
+const OUTPUT_PORTS: &[PortInfo] = &[PortInfo::data("read_value"), PortInfo::data("read_data")];
 
 impl<V, I> Simulatable for Memory<V, I>
 where
@@ -83,11 +83,25 @@ where
     type InputsMut<'a> = &'a mut Inputs<V, I>;
     type Inputs<'a> = &'a Inputs<V, I>;
     type Outputs<'a> = &'a Outputs<V>;
-    fn port_info(&self, output: bool, index: usize) -> Option<(&str, bool)> {
+    fn port_info(&self, output: bool, index: usize) -> Option<PortInfo> {
         if output {
             OUTPUT_PORTS.get(index).copied()
         } else {
             INPUT_PORTS.get(index).copied()
+        }
+    }
+    fn try_state_data(&self, index: usize) -> Option<PortData> {
+        if index == 0 {
+            Some(PortData::of(&self.inputs.address))
+        } else {
+            None
+        }
+    }
+    fn try_state_data_mut(&mut self, index: usize) -> Option<PortDataMut> {
+        if index == 0 {
+            Some(PortDataMut::of(&mut self.inputs.address))
+        } else {
+            None
         }
     }
     fn inputs(&self) -> &Inputs<V, I> {

@@ -4,31 +4,59 @@ use crate::types::{BitRange, BitRangeMut};
 use crate::utils;
 
 //a Traits
+//tt SimValueObject
+/// Trait supported by SimBit, SimBv, etc
+///
+/// All values must provide this
+///
+/// This is an object-safe trait
+pub trait SimValueObject: std::any::Any + std::fmt::Debug {
+    fn as_any(&self) -> &dyn std::any::Any;
+
+    //ap try_as_u8s
+    /// Return the data contents as a slice of u8
+    ///
+    /// This can return an empty slice
+    fn try_as_u8s(&self) -> Option<&[u8]> {
+        None
+    }
+
+    //ap as_u8s
+    /// Return the data contents as a mutable slice of u8
+    ///
+    /// This cannot fail
+    fn try_as_u8s_mut(&mut self) -> Option<&mut [u8]> {
+        None
+    }
+}
+
 //tt SimValue
 /// Trait supported by SimBit, SimBv, etc
 ///
 /// All values must provide this
 ///
 /// Add Serialize, Deserialize
+///
+/// This is *not* an object-safe trait
 pub trait SimValue:
     Sized
     + Copy
-    + std::fmt::Debug
     + std::default::Default
     + std::cmp::PartialEq
     + std::cmp::Eq
     + std::hash::Hash
-    + std::any::Any
+    + SimValueObject
 {
-    fn as_any(&self) -> &dyn std::any::Any;
 }
 
+//tt SimArray
 pub trait SimArray<V: SimValue>:
     SimValue + std::ops::Index<usize, Output = V> + std::ops::IndexMut<usize>
 {
     fn num_elements(&self) -> usize;
 }
 
+//tt SimStruct
 pub trait SimStruct: SimValue {}
 
 //tt SimBit

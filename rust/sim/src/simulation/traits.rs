@@ -1,5 +1,5 @@
 //a Imports
-use crate::simulation::{SimNsName, SimReset};
+use crate::simulation::{PortData, PortDataMut, PortInfo, SimNsName, SimReset};
 
 //a Simulation traits
 //tt SimHandle
@@ -134,8 +134,18 @@ pub trait Component: Simulatable {
     }
 
     //ap port_info
-    /// Iterate through the ports
-    fn port_info(&self, output: bool, index: usize) -> Option<(&str, bool)>;
+    /// Return the information for a specified input or output port
+    ///
+    /// Clocks are usually input ports
+    fn port_info(&self, output: bool, index: usize) -> Option<PortInfo>;
+
+    fn try_state_data(&self, index: usize) -> Option<PortData> {
+        None
+    }
+
+    fn try_state_data_mut(&mut self, index: usize) -> Option<PortDataMut> {
+        None
+    }
 
     //ap inputs_mut
     /// Borrow the inputs as mutable
