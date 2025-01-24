@@ -41,13 +41,13 @@ impl BvData for std::num::Wrapping<u64> {
         *self = (*self - *other) & mask_u64(NB);
     }
     fn bit_or<const NB: usize>(&mut self, other: &Self) {
-        *self = *self | *other;
+        *self |= *other;
     }
     fn bit_and<const NB: usize>(&mut self, other: &Self) {
-        *self = *self & *other;
+        *self &= *other;
     }
     fn bit_xor<const NB: usize>(&mut self, other: &Self) {
-        *self = *self ^ *other;
+        *self ^= *other;
     }
 }
 

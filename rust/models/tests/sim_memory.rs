@@ -6,7 +6,7 @@ type Mem32x31 = Memory<Bv<31>, Bv<5>>;
 #[test]
 fn sim_memory() -> Result<(), String> {
     let mut sim = Simulation::new();
-    sim.add_clock("clk", 0, 1, 0);
+    sim.add_clock("clk", 0, 1, 0)?;
     let mem1 = sim.instantiate::<Mem32x31, _, _>("memory", || 32)?;
     let mem2 = sim.instantiate::<Mem32x31, _, _>("memory_2", || 32)?;
 
@@ -52,20 +52,5 @@ fn sim_memory() -> Result<(), String> {
         "Read data should be value written"
     );
 
-    Ok(())
-}
-#[test]
-fn sim_clocks() -> Result<(), String> {
-    let mut sim = Simulation::new();
-    assert_eq!(sim.add_clock("clk", 0, 21, 0), 0);
-    assert_eq!(sim.add_clock("clk", 17, 5, 0), 1);
-    assert_eq!(sim.add_clock("clk", 3, 14, 0), 2);
-    sim.prepare_simulation();
-
-    for i in 0..100 {
-        let edges = sim.next_edges();
-        eprintln!("{}: Edges {:?}", sim.time(), edges);
-    }
-    assert!(false);
     Ok(())
 }

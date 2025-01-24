@@ -1,5 +1,5 @@
 //a Imports
-use crate::simulation::{FullName, SimReset};
+use crate::simulation::{FullNameIndex, SimReset};
 
 //a Simulation traits
 //tt SimHandle
@@ -92,7 +92,7 @@ pub trait ComponentBuilder {
     //bp instantiate
     /// Instantiate a component, which in turn can be configured using
     /// it 'configure' method in its 'Component' trait prior to first use
-    fn instantiate<S: SimRegister>(sim: &mut S, name: &FullName) -> Self::Build;
+    fn instantiate<S: SimRegister>(sim: &mut S, name: FullNameIndex) -> Self::Build;
 }
 
 //tt Component
@@ -133,17 +133,21 @@ pub trait Component: Simulatable {
         Ok(())
     }
 
+    //ap port_info
+    /// Iterate through the ports
+    fn port_info(&self, output: bool, index: usize) -> Option<(&str, bool)>;
+
     //ap inputs_mut
     /// Borrow the inputs as mutable
-    fn inputs_mut<'a>(&'a mut self) -> Self::InputsMut<'a>;
+    fn inputs_mut(&mut self) -> Self::InputsMut<'_>;
 
     //ap inputs
     /// Borrow the inputs as immutable
-    fn inputs<'a>(&'a self) -> Self::Inputs<'a>;
+    fn inputs(&self) -> Self::Inputs<'_>;
 
     //ap outputs
     /// Borrow the outputs as immutable
-    fn outputs<'a>(&'a self) -> Self::Outputs<'a>;
+    fn outputs(&self) -> Self::Outputs<'_>;
 }
 
 //tt Simulatable

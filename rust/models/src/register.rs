@@ -36,6 +36,14 @@ where
     outputs: Outputs<V>,
 }
 
+const INPUT_PORTS: &[(&str, bool)] = &[
+    ("clk", true),
+    ("reset_n", false),
+    ("enable", false),
+    ("data", false),
+];
+const OUTPUT_PORTS: &[(&str, bool)] = &[("data", false)];
+
 //ip Register
 impl<V> Register<V>
 where
@@ -114,6 +122,13 @@ where
     type InputsMut<'a> = &'a mut Inputs<V>;
     type Inputs<'a> = &'a Inputs<V>;
     type Outputs<'a> = &'a Outputs<V>;
+    fn port_info(&self, output: bool, index: usize) -> Option<(&str, bool)> {
+        if output {
+            OUTPUT_PORTS.get(index).copied()
+        } else {
+            INPUT_PORTS.get(index).copied()
+        }
+    }
     fn inputs(&self) -> &Inputs<V> {
         &self.inputs
     }
@@ -142,7 +157,7 @@ where
     V: SimValue,
 {
     type Build = Self;
-    fn instantiate<S: SimRegister>(_sim: &mut S, _name: &FullName) -> Self {
+    fn instantiate<S: SimRegister>(_sim: &mut S, _name: FullNameIndex) -> Self {
         Self::default()
     }
 }

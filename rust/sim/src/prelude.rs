@@ -11,7 +11,7 @@ pub mod sim {
 
 pub mod component {
     pub use crate::types::{Bit, Bv, BvN, IsBv};
-    pub use crate::FullName;
+    pub use crate::FullNameIndex;
     pub use crate::{Component, ComponentBuilder, SimReset, Simulatable};
     pub use crate::{SimArray, SimBit, SimBv, SimStruct, SimValue};
     pub use crate::{SimHandle, SimRegister};

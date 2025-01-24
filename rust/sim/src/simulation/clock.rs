@@ -1,12 +1,12 @@
 //a Imports
-use crate::utils;
+use crate::FullNameIndex;
 
 //a Clock
 //tp Clock
 #[derive(Default)]
 pub struct Clock {
     /// Name of the clock
-    name: String,
+    name: FullNameIndex,
 
     /// Delay to first posedge
     delay: usize,
@@ -23,8 +23,7 @@ pub struct Clock {
 impl Clock {
     //cp new
     /// Create a new clock
-    fn new(name: &str, delay: usize, period: usize, negedge_offset: usize) -> Clock {
-        let name = name.into();
+    fn new(name: FullNameIndex, delay: usize, period: usize, negedge_offset: usize) -> Clock {
         Clock {
             name,
             delay,
@@ -111,7 +110,7 @@ impl Schedule {
     fn new(clocks: &[Clock]) -> Self {
         let time = 0;
         let next_time = 0;
-        let clock_pos: Vec<ClockPos> = clocks.iter().map(|c| ClockPos::new(c)).collect();
+        let clock_pos: Vec<ClockPos> = clocks.iter().map(ClockPos::new).collect();
         Self {
             time,
             next_time,
@@ -157,6 +156,7 @@ impl Schedule {
 
 //a ClockArray, ClockIndex
 //tp ClockIndex
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ClockIndex(usize);
 
 //ip Index<ClockIndex> for ClockArray
@@ -188,20 +188,25 @@ pub struct ClockArray {
 
 //ip ClockArray
 impl ClockArray {
+    #[track_caller]
     pub fn add_clock(
         &mut self,
-        name: &str,
+        name: FullNameIndex,
         delay: usize,
         period: usize,
         negedge_offset: usize,
     ) -> ClockIndex {
-        let name = name.into();
         let clock = Clock {
             name,
             delay,
             period,
             negedge_offset,
         };
+        assert!(period > 0, "Period of a clock must be at least one");
+        assert!(
+            negedge_offset < period,
+            "Negedge offset must be less than the clock period"
+        );
         let n = self.clocks.len();
         self.clocks.push(clock);
         n.into()

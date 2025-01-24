@@ -24,9 +24,9 @@ impl U8Ops for [u8] {
         let nb = n / 8;
         let m = 1 << (n & 7);
         if v {
-            self[nb] = self[nb] | m;
+            self[nb] |= m;
         } else {
-            self[nb] = self[nb] & !m;
+            self[nb] &= !m;
         }
     }
 
@@ -36,9 +36,9 @@ impl U8Ops for [u8] {
         let nb = n / 8;
         let m = 1 << (n & 7);
         if v {
-            self[nb] = self[nb] | m;
+            self[nb] |= m;
         } else {
-            self[nb] = self[nb] & !m;
+            self[nb] &= !m;
         }
     }
 }

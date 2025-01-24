@@ -212,7 +212,7 @@ pub trait SimBv:
     //fp is_zero
     /// Return true if the value is zero
     fn is_zero(&self) -> bool {
-        self.as_u8s().iter().position(|x| *x != 0).is_none()
+        !self.as_u8s().iter().any(|x| *x != 0)
     }
 
     //zz All done

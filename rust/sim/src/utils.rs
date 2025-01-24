@@ -74,6 +74,7 @@ pub fn iter_u8_of_bits(num_bits: usize) -> impl std::iter::Iterator<Item = (usiz
     })
 }
 //fi gcd
+#[allow(dead_code)]
 pub fn gcd(mut a: usize, mut b: usize) -> usize {
     if a < b {
         return gcd(b, a);
@@ -91,6 +92,7 @@ pub fn gcd(mut a: usize, mut b: usize) -> usize {
 }
 
 //fi lcm
+#[allow(dead_code)]
 pub fn lcm(a: usize, b: usize) -> usize {
     let b = b / gcd(a, b);
     a * b

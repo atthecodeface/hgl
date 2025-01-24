@@ -1,12 +1,17 @@
 //a Imports
+use std::cell::RefCell;
+
 use crate::simulation::{
-    ClockArray, ClockIndex, FullName, Instance, Names, RefInstance, RefMutInstance,
+    ClockArray, ClockIndex, Instance, Name, Names, NamespaceStack, RefInstance, RefMutInstance,
 };
 use crate::simulation::{Component, ComponentBuilder, SimHandle, SimRegister};
-
 //a SimulationControl
+#[derive(Default)]
 struct SimulationControl {
-    namespace: (),
+    /// Names and namespaces in the simulation
+    names: Names,
+    /// Current namespace stack
+    namespace_stack: NamespaceStack,
 }
 
 //a InstanceHandle
@@ -27,14 +32,11 @@ impl SimHandle for InstanceHandle {}
 //a Simulation
 //tp Simulation
 pub struct Simulation {
-    /// Names and namespaces in the simulation
-    names: Names,
-
     /// Clocks used in the simulation
     clocks: ClockArray,
 
     /// Control of the simulation that can change during simulation itself
-    /// control: SimulationControl,
+    control: RefCell<SimulationControl>,
 
     /// Instances which can be individually executed by separate
     /// threads
@@ -42,18 +44,22 @@ pub struct Simulation {
 }
 
 //ip Simulation
+impl Default for Simulation {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Simulation {
     //cp new
     /// Create a new simulation
     pub fn new() -> Self {
-        let names = Names::new();
         let clocks = ClockArray::default();
-        // let control = SimulationControl { namespace };
+        let control = RefCell::new(SimulationControl::default());
         let instances = vec![];
         Self {
             clocks,
-            names,
-            // control,
+            control,
             instances,
         }
     }
@@ -86,8 +92,16 @@ impl Simulation {
         delay: usize,
         period: usize,
         negedge_offset: usize,
-    ) -> ClockIndex {
-        self.clocks.add_clock(name, delay, period, negedge_offset)
+    ) -> Result<ClockIndex, String> {
+        let mut control = self.control.borrow_mut();
+        let namespace = control.namespace_stack.top();
+        let full_name = control
+            .names
+            .insert_full_name(namespace, name)
+            .map_err(|_e| format!("Duplicate name {name} when trying to create clock"))?;
+        Ok(self
+            .clocks
+            .add_clock(full_name, delay, period, negedge_offset))
     }
 
     //mp instantiate
@@ -105,14 +119,24 @@ impl Simulation {
         name: &str,
         config_fn: F,
     ) -> Result<InstanceHandle, String> {
-        let full_name = FullName::new((), name)?; // self.control.namespace
-        let component = CB::instantiate(self, &full_name);
+        let mut control = self.control.borrow_mut();
+        let namespace = control.namespace_stack.top();
+        let full_name = control
+            .names
+            .insert_full_name(namespace, name)
+            .map_err(|_e| format!("Duplicate name {name} when trying to instantiate module"))?;
+        drop(control);
+        let component = CB::instantiate(self, full_name);
         let instance = Instance::new(component);
         let handle = InstanceHandle::new(self.instances.len());
         self.instances.push(instance);
-        let mut instance = self.instances[handle.0].borrow_mut::<C>().unwrap();
-        instance.configure(&*self, handle, config_fn())?;
+        self.instances[handle.0].configure::<C, _>(self, handle, config_fn)?;
         Ok(handle)
+    }
+
+    //mp add_name
+    pub fn add_name(&self, name: &str) -> Name {
+        self.control.borrow_mut().names.add_name(name)
     }
 
     //ap inst
@@ -131,6 +155,7 @@ impl Simulation {
 //ip SimRegister for Simulation
 impl SimRegister for Simulation {
     type Handle = InstanceHandle;
+
     fn register_input_edge(
         &self,
         _handle: Self::Handle,

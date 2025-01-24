@@ -33,6 +33,15 @@ where
     outputs: Outputs<V>,
 }
 
+const INPUT_PORTS: &[(&str, bool)] = &[
+    ("clk", true),
+    ("read_enable", false),
+    ("write_enable", false),
+    ("address", false),
+    ("write_data", false),
+];
+const OUTPUT_PORTS: &[(&str, bool)] = &[("read_value", false), ("read_data", false)];
+
 impl<V, I> Simulatable for Memory<V, I>
 where
     V: SimValue,
@@ -74,6 +83,13 @@ where
     type InputsMut<'a> = &'a mut Inputs<V, I>;
     type Inputs<'a> = &'a Inputs<V, I>;
     type Outputs<'a> = &'a Outputs<V>;
+    fn port_info(&self, output: bool, index: usize) -> Option<(&str, bool)> {
+        if output {
+            OUTPUT_PORTS.get(index).copied()
+        } else {
+            INPUT_PORTS.get(index).copied()
+        }
+    }
     fn inputs(&self) -> &Inputs<V, I> {
         &self.inputs
     }
@@ -116,7 +132,7 @@ where
     I: SimBv,
 {
     type Build = Self;
-    fn instantiate<S: SimRegister>(_sim: &mut S, _name: &FullName) -> Self {
+    fn instantiate<S: SimRegister>(_sim: &mut S, _name: FullNameIndex) -> Self {
         Memory::default()
     }
 }
