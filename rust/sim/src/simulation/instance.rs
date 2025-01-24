@@ -5,25 +5,22 @@ use std::marker::PhantomData;
 use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use crate::simulation::{Component, Simulatable};
-use crate::simulation::{InstanceHandle, Name, Simulation};
+use crate::simulation::{Name, Port, Simulation};
 
-//a Port
-pub enum Port {
-    Clock(usize),
-    Input(usize),
-    Output(usize),
-}
-impl Port {
-    pub fn clock(n: usize) -> Self {
-        Port::Clock(n)
-    }
-    pub fn input(n: usize) -> Self {
-        Port::Input(n)
-    }
-    pub fn output(n: usize) -> Self {
-        Port::Output(n)
+//a InstanceHandle
+//tp InstanceHandle
+#[derive(Debug, Clone, Copy)]
+pub struct InstanceHandle(usize);
+
+//ip From<usize> for InstanceHandle
+impl From<usize> for InstanceHandle {
+    fn from(n: usize) -> Self {
+        Self(n)
     }
 }
+
+//ip InstanceHandle
+impl InstanceHandle {}
 
 //a Instance
 //tp Instance
@@ -184,5 +181,24 @@ impl<C: Component + 'static> RefInstance<'_, C> {
     /// Borrow the outputs as immutable
     pub fn outputs(&self) -> C::Outputs<'_> {
         self.l.as_any().downcast_ref::<C>().unwrap().outputs()
+    }
+}
+
+//a InstanceArray
+#[derive(Default)]
+pub struct InstanceArray(Vec<Instance>);
+
+impl std::ops::Index<InstanceHandle> for InstanceArray {
+    type Output = Instance;
+    fn index(&self, n: InstanceHandle) -> &Instance {
+        &self.0[n.0]
+    }
+}
+impl InstanceArray {
+    pub fn add_instance<C: Component>(&mut self, component: C) -> Result<InstanceHandle, String> {
+        let instance = Instance::new(component);
+        let handle = self.0.len().into();
+        self.0.push(instance);
+        Ok(handle)
     }
 }

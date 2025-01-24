@@ -1,12 +1,12 @@
 //a Imports
-use crate::FullNameIndex;
+use crate::SimNsName;
 
 //a Clock
 //tp Clock
 #[derive(Default)]
 pub struct Clock {
     /// Name of the clock
-    name: FullNameIndex,
+    name: SimNsName,
 
     /// Delay to first posedge
     delay: usize,
@@ -23,7 +23,13 @@ pub struct Clock {
 impl Clock {
     //cp new
     /// Create a new clock
-    fn new(name: FullNameIndex, delay: usize, period: usize, negedge_offset: usize) -> Clock {
+    #[track_caller]
+    fn new(name: SimNsName, delay: usize, period: usize, negedge_offset: usize) -> Clock {
+        assert!(period > 0, "Period of a clock must be at least one");
+        assert!(
+            negedge_offset < period,
+            "Negedge offset must be less than the clock period"
+        );
         Clock {
             name,
             delay,
@@ -191,22 +197,12 @@ impl ClockArray {
     #[track_caller]
     pub fn add_clock(
         &mut self,
-        name: FullNameIndex,
+        name: SimNsName,
         delay: usize,
         period: usize,
         negedge_offset: usize,
     ) -> ClockIndex {
-        let clock = Clock {
-            name,
-            delay,
-            period,
-            negedge_offset,
-        };
-        assert!(period > 0, "Period of a clock must be at least one");
-        assert!(
-            negedge_offset < period,
-            "Negedge offset must be less than the clock period"
-        );
+        let clock = Clock::new(name, delay, period, negedge_offset);
         let n = self.clocks.len();
         self.clocks.push(clock);
         n.into()

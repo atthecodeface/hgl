@@ -14,34 +14,34 @@ impl From<usize> for Name {
     }
 }
 
-//a FullNameIndex
-//tp FullNameIndex
+//a SimNsName
+//tp SimNsName
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash)]
-pub struct FullNameIndex(usize);
+pub struct SimNsName(usize);
 
-//ip From <usize> for FullNameIndex
-impl From<usize> for FullNameIndex {
-    fn from(f: usize) -> FullNameIndex {
-        FullNameIndex(f)
+//ip From <usize> for SimNsName
+impl From<usize> for SimNsName {
+    fn from(f: usize) -> SimNsName {
+        SimNsName(f)
     }
 }
 
-//a FullName
+//a NsName
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct FullName {
-    namespace: FullNameIndex,
+pub struct NsName {
+    namespace: SimNsName,
     name: Name,
 }
 
-//ip PartialOrd for FullName
-impl std::cmp::PartialOrd for FullName {
+//ip PartialOrd for NsName
+impl std::cmp::PartialOrd for NsName {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
-//ip Ord for FullName
-impl std::cmp::Ord for FullName {
+//ip Ord for NsName
+impl std::cmp::Ord for NsName {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         use std::cmp::Ordering::*;
         match self.namespace.cmp(&other.namespace) {
@@ -51,10 +51,10 @@ impl std::cmp::Ord for FullName {
     }
 }
 
-//ip From (FullNameIndex, Name) for FullName
-impl From<(FullNameIndex, Name)> for FullName {
-    fn from((namespace, name): (FullNameIndex, Name)) -> FullName {
-        FullName { namespace, name }
+//ip From (SimNsName, Name) for NsName
+impl From<(SimNsName, Name)> for NsName {
+    fn from((namespace, name): (SimNsName, Name)) -> NsName {
+        NsName { namespace, name }
     }
 }
 
@@ -63,8 +63,8 @@ impl From<(FullNameIndex, Name)> for FullName {
 pub struct Names {
     pool: Vec<Pin<String>>,
     pool_index: HashMap<&'static str, Name>,
-    namespace_names: Vec<FullName>,
-    namespace_name_index: HashMap<FullName, FullNameIndex>,
+    namespace_names: Vec<NsName>,
+    namespace_name_index: HashMap<NsName, SimNsName>,
 }
 
 //ip Default for Names
@@ -72,7 +72,7 @@ impl std::default::Default for Names {
     fn default() -> Self {
         let pool = vec![];
         let pool_index = HashMap::default();
-        let namespace_names = vec![FullName::default()];
+        let namespace_names = vec![NsName::default()];
         let namespace_name_index = HashMap::default();
         let mut s = Self {
             pool,
@@ -95,26 +95,26 @@ impl std::ops::Index<Name> for Names {
 
 //ip Names
 impl Names {
-    pub fn root_namespace(&self) -> FullName {
+    pub fn root_namespace(&self) -> NsName {
         self.namespace_names[0]
     }
 
-    fn add_full_name(&mut self, f: FullName) -> FullNameIndex {
+    fn add_full_name(&mut self, f: NsName) -> SimNsName {
         let n = self.pool.len().into();
         self.namespace_names.push(f);
         self.namespace_name_index.insert(f, n);
         n
     }
 
-    fn get_full_name(&self, f: &FullName) -> Option<FullNameIndex> {
+    fn get_full_name(&self, f: &NsName) -> Option<SimNsName> {
         self.namespace_name_index.get(f).copied()
     }
 
     pub fn insert_full_name(
         &mut self,
-        namespace: FullNameIndex,
+        namespace: SimNsName,
         name: &str,
-    ) -> Result<FullNameIndex, FullNameIndex> {
+    ) -> Result<SimNsName, SimNsName> {
         let name = self.insert_pool(name);
         let full_name = (namespace, name).into();
         if let Some(p) = self.get_full_name(&full_name) {
@@ -154,23 +154,23 @@ impl Names {
 //a NamespaceStack
 #[derive(Debug, Default, Clone)]
 pub struct NamespaceStack {
-    stack: Vec<FullNameIndex>,
+    stack: Vec<SimNsName>,
 }
 impl NamespaceStack {
-    pub fn top(&self) -> FullNameIndex {
+    pub fn top(&self) -> SimNsName {
         if let Some(s) = self.stack.last() {
             *s
         } else {
-            FullNameIndex::default()
+            SimNsName::default()
         }
     }
     #[track_caller]
-    pub fn push(&mut self, f: FullNameIndex) {
+    pub fn push(&mut self, f: SimNsName) {
         assert!(f.0 != 0, "Cannot push the root namespace");
         self.stack.push(f);
     }
     #[track_caller]
-    pub fn pop(&mut self) -> FullNameIndex {
+    pub fn pop(&mut self) -> SimNsName {
         assert!(
             !self.stack.is_empty(),
             "Empty namespace stack cannot be popped"

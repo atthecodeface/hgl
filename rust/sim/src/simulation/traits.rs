@@ -1,5 +1,5 @@
 //a Imports
-use crate::simulation::{FullNameIndex, SimReset};
+use crate::simulation::{SimNsName, SimReset};
 
 //a Simulation traits
 //tt SimHandle
@@ -92,7 +92,7 @@ pub trait ComponentBuilder {
     //bp instantiate
     /// Instantiate a component, which in turn can be configured using
     /// it 'configure' method in its 'Component' trait prior to first use
-    fn instantiate<S: SimRegister>(sim: &mut S, name: FullNameIndex) -> Self::Build;
+    fn instantiate<S: SimRegister>(sim: &mut S, name: SimNsName) -> Self::Build;
 }
 
 //tt Component

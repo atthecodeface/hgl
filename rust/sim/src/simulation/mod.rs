@@ -2,14 +2,16 @@
 mod clock;
 mod instance;
 mod names;
+mod port;
 mod simulation;
 mod traits;
 
 //a Exports
 pub use clock::{ClockArray, ClockIndex};
-pub use instance::{Instance, Port, RefInstance, RefMutInstance};
-pub use names::{FullName, FullNameIndex, Name, Names, NamespaceStack};
-pub use simulation::{InstanceHandle, Simulation};
+pub use instance::{InstanceArray, InstanceHandle, RefInstance, RefMutInstance};
+pub use names::{Name, Names, NamespaceStack, SimNsName};
+pub use port::Port;
+pub use simulation::Simulation;
 pub use traits::{Component, ComponentBuilder, Simulatable};
 pub use traits::{SimHandle, SimRegister};
 

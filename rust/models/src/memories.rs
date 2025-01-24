@@ -132,7 +132,7 @@ where
     I: SimBv,
 {
     type Build = Self;
-    fn instantiate<S: SimRegister>(_sim: &mut S, _name: FullNameIndex) -> Self {
+    fn instantiate<S: SimRegister>(_sim: &mut S, _name: SimNsName) -> Self {
         Memory::default()
     }
 }

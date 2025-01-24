@@ -2,9 +2,11 @@
 use std::cell::RefCell;
 
 use crate::simulation::{
-    ClockArray, ClockIndex, Instance, Name, Names, NamespaceStack, RefInstance, RefMutInstance,
+    ClockArray, ClockIndex, InstanceArray, InstanceHandle, Name, Names, NamespaceStack,
+    RefInstance, RefMutInstance,
 };
 use crate::simulation::{Component, ComponentBuilder, SimHandle, SimRegister};
+
 //a SimulationControl
 #[derive(Default)]
 struct SimulationControl {
@@ -12,18 +14,6 @@ struct SimulationControl {
     names: Names,
     /// Current namespace stack
     namespace_stack: NamespaceStack,
-}
-
-//a InstanceHandle
-//tp InstanceHandle
-#[derive(Debug, Clone, Copy)]
-pub struct InstanceHandle(usize);
-
-//ip InstanceHandle
-impl InstanceHandle {
-    fn new(n: usize) -> Self {
-        Self(n)
-    }
 }
 
 //ip SimHandle for InstanceHandle
@@ -40,7 +30,7 @@ pub struct Simulation {
 
     /// Instances which can be individually executed by separate
     /// threads
-    instances: Vec<Instance>,
+    instances: InstanceArray,
 }
 
 //ip Simulation
@@ -56,7 +46,7 @@ impl Simulation {
     pub fn new() -> Self {
         let clocks = ClockArray::default();
         let control = RefCell::new(SimulationControl::default());
-        let instances = vec![];
+        let instances = InstanceArray::default();
         Self {
             clocks,
             control,
@@ -127,10 +117,8 @@ impl Simulation {
             .map_err(|_e| format!("Duplicate name {name} when trying to instantiate module"))?;
         drop(control);
         let component = CB::instantiate(self, full_name);
-        let instance = Instance::new(component);
-        let handle = InstanceHandle::new(self.instances.len());
-        self.instances.push(instance);
-        self.instances[handle.0].configure::<C, _>(self, handle, config_fn)?;
+        let handle = self.instances.add_instance(component)?;
+        self.instances[handle].configure::<C, _>(self, handle, config_fn)?;
         Ok(handle)
     }
 
@@ -142,13 +130,13 @@ impl Simulation {
     //ap inst
     /// Get a reference to a component instance given its handle
     pub fn inst<C: Component>(&self, handle: InstanceHandle) -> RefInstance<C> {
-        self.instances[handle.0].borrow()
+        self.instances[handle].borrow()
     }
 
     //ap inst_mut
     /// Get a mutable reference to a component instance given its handle
     pub fn inst_mut<C: Component>(&self, handle: InstanceHandle) -> RefMutInstance<C> {
-        self.instances[handle.0].borrow_mut().unwrap()
+        self.instances[handle].borrow_mut().unwrap()
     }
 }
 
