@@ -32,6 +32,8 @@ pub struct Simulation {
 
 //ip Simulation
 impl Simulation {
+    //cp new
+    /// Create a new simulation
     pub fn new() -> Self {
         let namespace = ();
         let clocks = ClockArray::default();
@@ -44,6 +46,21 @@ impl Simulation {
         }
     }
 
+    //mp prepare_simulation
+    pub fn prepare_simulation(&mut self) {
+        self.clocks.derive_schedule();
+    }
+
+    //mp next_edges
+    pub fn next_edges(&mut self) -> (usize, usize) {
+        self.clocks.next_edges()
+    }
+
+    //mp time
+    pub fn time(&self) -> usize {
+        self.clocks.time()
+    }
+
     //mp add_clock
     /// Add a clock by name, within the current namespace
     ///
@@ -51,8 +68,14 @@ impl Simulation {
     /// posedge repeatedly after every 'period'; the negedge_offset
     /// should be less than period, and is the delay from the posedge
     /// to the negedge; a value of 0 means a negedge is not simulated
-    pub fn add_clock(&mut self, name: &str, delay: usize, period: usize, negedge_offset: usize) {
-        self.clocks.add_clock(name, delay, period, negedge_offset);
+    pub fn add_clock(
+        &mut self,
+        name: &str,
+        delay: usize,
+        period: usize,
+        negedge_offset: usize,
+    ) -> usize {
+        self.clocks.add_clock(name, delay, period, negedge_offset)
     }
 
     //mp instantiate
@@ -81,10 +104,13 @@ impl Simulation {
     }
 
     //ap inst
-    /// Get a reference to th
+    /// Get a reference to a component instance given its handle
     pub fn inst<C: Component>(&self, handle: InstanceHandle) -> RefInstance<C> {
         self.instances[handle.0].borrow()
     }
+
+    //ap inst_mut
+    /// Get a mutable reference to a component instance given its handle
     pub fn inst_mut<C: Component>(&self, handle: InstanceHandle) -> RefMutInstance<C> {
         self.instances[handle.0].borrow_mut().unwrap()
     }

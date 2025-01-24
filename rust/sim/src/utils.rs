@@ -73,3 +73,25 @@ pub fn iter_u8_of_bits(num_bits: usize) -> impl std::iter::Iterator<Item = (usiz
         }
     })
 }
+//fi gcd
+pub fn gcd(mut a: usize, mut b: usize) -> usize {
+    if a < b {
+        return gcd(b, a);
+    }
+    loop {
+        let r = a % b;
+        if r > 0 {
+            a = b;
+            b = r;
+        } else {
+            break;
+        }
+    }
+    b
+}
+
+//fi lcm
+pub fn lcm(a: usize, b: usize) -> usize {
+    let b = b / gcd(a, b);
+    a * b
+}
