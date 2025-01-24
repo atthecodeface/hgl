@@ -1,5 +1,5 @@
 //a Imports
-use crate::simulation::{ClockArray, FullName, Instance, RefInstance, RefMutInstance};
+use crate::simulation::{ClockArray, FullName, Instance, Names, RefInstance, RefMutInstance};
 use crate::simulation::{Component, ComponentBuilder, SimHandle, SimRegister};
 
 //a SimulationControl
@@ -25,8 +25,17 @@ impl SimHandle for InstanceHandle {}
 //a Simulation
 //tp Simulation
 pub struct Simulation {
-    control: SimulationControl,
+    /// Names and namespaces in the simulation
+    names: Names,
+
+    /// Clocks used in the simulation
     clocks: ClockArray,
+
+    /// Control of the simulation that can change during simulation itself
+    /// control: SimulationControl,
+
+    /// Instances which can be individually executed by separate
+    /// threads
     instances: Vec<Instance>,
 }
 
@@ -35,13 +44,14 @@ impl Simulation {
     //cp new
     /// Create a new simulation
     pub fn new() -> Self {
-        let namespace = ();
+        let names = Names::new();
         let clocks = ClockArray::default();
-        let control = SimulationControl { namespace };
+        // let control = SimulationControl { namespace };
         let instances = vec![];
         Self {
             clocks,
-            control,
+            names,
+            // control,
             instances,
         }
     }
@@ -93,7 +103,7 @@ impl Simulation {
         name: &str,
         config_fn: F,
     ) -> Result<InstanceHandle, String> {
-        let full_name = FullName::new(self.control.namespace, name)?;
+        let full_name = FullName::new((), name)?; // self.control.namespace
         let component = CB::instantiate(self, &full_name);
         let instance = Instance::new(component);
         let handle = InstanceHandle::new(self.instances.len());

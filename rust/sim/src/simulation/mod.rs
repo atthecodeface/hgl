@@ -8,7 +8,7 @@ mod traits;
 //a Exports
 pub use clock::ClockArray;
 pub use instance::{Instance, RefInstance, RefMutInstance};
-pub use names::FullName;
+pub use names::{FullName, Names};
 pub use simulation::Simulation;
 pub use traits::{Component, ComponentBuilder, Simulatable};
 pub use traits::{SimHandle, SimRegister};
