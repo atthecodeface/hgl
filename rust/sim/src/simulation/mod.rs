@@ -6,7 +6,7 @@ mod simulation;
 mod traits;
 
 //a Exports
-pub use clock::ClockArray;
+pub use clock::{ClockArray, ClockIndex};
 pub use instance::{Instance, RefInstance, RefMutInstance};
 pub use names::{FullName, Names};
 pub use simulation::Simulation;

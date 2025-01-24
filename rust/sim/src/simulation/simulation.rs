@@ -1,5 +1,7 @@
 //a Imports
-use crate::simulation::{ClockArray, FullName, Instance, Names, RefInstance, RefMutInstance};
+use crate::simulation::{
+    ClockArray, ClockIndex, FullName, Instance, Names, RefInstance, RefMutInstance,
+};
 use crate::simulation::{Component, ComponentBuilder, SimHandle, SimRegister};
 
 //a SimulationControl
@@ -84,7 +86,7 @@ impl Simulation {
         delay: usize,
         period: usize,
         negedge_offset: usize,
-    ) -> usize {
+    ) -> ClockIndex {
         self.clocks.add_clock(name, delay, period, negedge_offset)
     }
 
