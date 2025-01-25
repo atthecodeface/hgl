@@ -53,9 +53,10 @@ where
     /// Create a new [Register] with a given reset value (if not the
     /// default)
     pub fn new(reset_value: Option<V>) -> Self {
-        let mut s = Self::default();
-        s.reset_value = reset_value;
-        s
+        Self {
+            reset_value,
+            ..Default::default()
+        }
     }
 }
 

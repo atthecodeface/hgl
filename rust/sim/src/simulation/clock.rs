@@ -37,6 +37,26 @@ impl Clock {
             negedge_offset,
         }
     }
+
+    //ap name
+    pub fn name(&self) -> SimNsName {
+        self.name
+    }
+
+    //ap period
+    pub fn period(&self) -> usize {
+        self.period
+    }
+
+    //ap delay
+    pub fn delay(&self) -> usize {
+        self.delay
+    }
+
+    //ap negedge_offset
+    pub fn negedge_offset(&self) -> usize {
+        self.negedge_offset
+    }
 }
 
 //a ClockPos
@@ -74,23 +94,26 @@ impl ClockPos {
     /// Also return the time of the next edge
     fn next_time_and_edges(&mut self, clock: &Clock, time: usize) -> (usize, bool, bool) {
         let enable_edge = time >= clock.delay;
-        if time < self.next_edge {
-            (self.next_edge, false, false)
-        } else if time == self.next_edge {
-            if !self.next_is_posedge {
-                self.next_edge += clock.period - clock.negedge_offset;
-                self.next_is_posedge = true;
-                (self.next_edge, false, enable_edge)
-            } else if clock.negedge_offset > 0 {
-                self.next_edge += clock.negedge_offset;
-                self.next_is_posedge = false;
-                (self.next_edge, enable_edge, false)
-            } else {
-                self.next_edge += clock.period;
-                (self.next_edge, enable_edge, false)
+        use std::cmp::Ordering::*;
+        match time.cmp(&self.next_edge) {
+            Less => (self.next_edge, false, false),
+            Equal => {
+                if !self.next_is_posedge {
+                    self.next_edge += clock.period - clock.negedge_offset;
+                    self.next_is_posedge = true;
+                    (self.next_edge, false, enable_edge)
+                } else if clock.negedge_offset > 0 {
+                    self.next_edge += clock.negedge_offset;
+                    self.next_is_posedge = false;
+                    (self.next_edge, enable_edge, false)
+                } else {
+                    self.next_edge += clock.period;
+                    (self.next_edge, enable_edge, false)
+                }
             }
-        } else {
-            panic!("Clock moved beyond its edge!");
+            _ => {
+                panic!("Clock moved beyond the next edge, bug in clock edge ordering code!");
+            }
         }
     }
 }
@@ -137,7 +160,7 @@ impl Schedule {
         loop {
             self.time = self.next_time;
             let mut earliest = usize::MAX;
-            for i in 0..self.clock_pos.len() {
+            for (i, _x) in clocks.iter().enumerate().take(self.clock_pos.len()) {
                 let (time, posedge, negedge) =
                     self.clock_pos[i].next_time_and_edges(&clocks[i], self.time);
                 earliest = earliest.min(time);
@@ -226,5 +249,16 @@ impl ClockArray {
             panic!("Schedule has not been set up - no call of derive_schedule yet");
         };
         schedule.time
+    }
+}
+
+//ip IntoIter for ClockArray
+impl<'a> std::iter::IntoIterator for &'a ClockArray {
+    type Item = &'a Clock;
+    type IntoIter = std::slice::Iter<'a, Clock>;
+
+    // Required method
+    fn into_iter(self) -> std::slice::Iter<'a, Clock> {
+        self.clocks.iter()
     }
 }

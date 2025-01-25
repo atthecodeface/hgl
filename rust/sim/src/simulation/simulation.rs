@@ -2,8 +2,8 @@
 use std::cell::RefCell;
 
 use crate::simulation::{
-    ClockArray, ClockIndex, InstanceArray, InstanceHandle, Name, Names, NamespaceStack,
-    RefInstance, RefMutInstance,
+    Clock, ClockArray, ClockIndex, Instance, InstanceArray, InstanceHandle, Name, Names,
+    NamespaceStack, RefInstance, RefMutInstance,
 };
 use crate::simulation::{Component, ComponentBuilder, SimHandle, SimRegister};
 
@@ -31,6 +31,34 @@ pub struct Simulation {
     /// Instances which can be individually executed by separate
     /// threads
     instances: InstanceArray,
+}
+
+//ip Debug for Simulation
+impl std::fmt::Debug for Simulation {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(fmt, "Simulation[clocks:[")?;
+        for (i, clk) in self.iter_clocks().enumerate() {
+            if i > 0 {
+                fmt.write_str(", ")?;
+            }
+            fmt.write_str("'")?;
+            self.control.borrow().names.fmt_ns_name(fmt, clk.name())?;
+            fmt.write_str("'")?;
+        }
+        write!(fmt, "], instances:[")?;
+        for (i, inst) in self.iter_instances().enumerate() {
+            if i > 0 {
+                fmt.write_str(", ")?;
+            }
+            fmt.write_str("'")?;
+            self.control.borrow().names.fmt_ns_name(fmt, inst.name())?;
+
+            inst.fmt_full(fmt, &self.control.borrow().names)?;
+
+            fmt.write_str("'")?;
+        }
+        write!(fmt, "]]")
+    }
 }
 
 //ip Simulation
@@ -117,7 +145,7 @@ impl Simulation {
             .map_err(|_e| format!("Duplicate name {name} when trying to instantiate module"))?;
         drop(control);
         let component = CB::instantiate(self, full_name);
-        let handle = self.instances.add_instance(component)?;
+        let handle = self.instances.add_instance(full_name, component)?;
         self.instances[handle].configure::<C, _>(self, handle, config_fn)?;
         Ok(handle)
     }
@@ -125,6 +153,18 @@ impl Simulation {
     //mp add_name
     pub fn add_name(&self, name: &str) -> Name {
         self.control.borrow_mut().names.add_name(name)
+    }
+
+    //ap iter_clocks
+    /// Iterate through the clocks
+    pub fn iter_clocks(&self) -> impl std::iter::Iterator<Item = &Clock> {
+        self.clocks.into_iter()
+    }
+
+    //ap iter_instances
+    /// Iterate through the instances
+    pub fn iter_instances(&self) -> impl std::iter::Iterator<Item = &Instance> {
+        self.instances.into_iter()
     }
 
     //ap inst

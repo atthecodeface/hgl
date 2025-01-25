@@ -7,8 +7,8 @@ mod simulation;
 mod traits;
 
 //a Exports
-pub use clock::{ClockArray, ClockIndex};
-pub use instance::{InstanceArray, InstanceHandle, RefInstance, RefMutInstance};
+pub use clock::{Clock, ClockArray, ClockIndex};
+pub use instance::{Instance, InstanceArray, InstanceHandle, RefInstance, RefMutInstance};
 pub use names::{Name, Names, NamespaceStack, SimNsName};
 pub use port::{Port, PortData, PortDataMut, PortInfo};
 pub use simulation::Simulation;

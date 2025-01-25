@@ -1,7 +1,28 @@
 //a Imports
-use crate::types::{BitRange, BitRangeMut, BvData, IsBv, U8Ops};
-use crate::utils;
-use crate::{SimBv, SimValue, SimValueObject};
+use serde::{Deserialize, Serialize};
+
+use crate::types::{BitRange, BitRangeMut, BvData, U8Ops};
+use crate::{SimBv, SimValue};
+
+//a IsBv trait
+//tt IsBv
+/// Trait that describes the storage for a bit vector of NB bits with
+/// a specific backing store
+pub trait IsBv {
+    /// The storage type used
+    type BackingStore: BvData;
+
+    /// Number of bits in the vector
+    const NB: usize;
+
+    /// Number of u8 that are *valid* in the backing store
+    ///
+    /// BvData :: as_u8s will return an &[u8] that may be longer than
+    /// is *valid* for the data; this value should be no more than the
+    /// length of that [u8], and may well be less (for example, 7 for
+    /// a 56-bit vector)
+    const NU8: usize;
+}
 
 //a BvN
 //tp BvN
@@ -25,7 +46,9 @@ pub struct BvN<const NB: usize>();
 /// a reference to for part of a [Bv]
 ///
 /// And, Or, Xor, Not, Add and Sub (with assign) are supported with the rhs being Self or a reference to Self
-#[derive(Clone, Copy, Default)]
+#[repr(transparent)]
+#[derive(Clone, Copy, Default, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct Bv<const NB: usize>
 where
     BvN<{ NB }>: IsBv,
@@ -309,22 +332,6 @@ where
 {
     fn shr_assign(&mut self, rhs: usize) {
         self.data.bit_lshr::<NB>(rhs);
-    }
-}
-
-//ip SimValueObject for Bv
-impl<const NB: usize> SimValueObject for Bv<NB>
-where
-    BvN<{ NB }>: IsBv,
-{
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-    fn try_as_u8s(&self) -> Option<&[u8]> {
-        Some(unsafe { utils::as_u8s(&self.data) })
-    }
-    fn try_as_u8s_mut(&mut self) -> Option<&mut [u8]> {
-        Some(unsafe { utils::as_u8s_mut(&mut self.data) })
     }
 }
 

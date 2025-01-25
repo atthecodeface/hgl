@@ -1,26 +1,23 @@
+//a Imports
 use serde::{Deserialize, Serialize};
 use std::ops::{Deref, DerefMut};
 
-use crate::utils;
-use crate::{SimValue, SimValueObject};
+use crate::{SimBit, SimValue};
 
-#[derive(Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+//a Bit
+//tp Bit
+#[repr(transparent)]
+#[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct Bit(bool);
+
+//ip Bit
 impl Bit {
     pub const T: Self = Self(true);
     pub const F: Self = Self(false);
-
-    #[inline]
-    pub const fn is_true(&self) -> bool {
-        self.0
-    }
-
-    #[inline]
-    pub const fn is_false(&self) -> bool {
-        !self.0
-    }
 }
 
+//ip Not for Bit
 impl std::ops::Not for Bit {
     type Output = Bit;
     fn not(self) -> Bit {
@@ -28,6 +25,7 @@ impl std::ops::Not for Bit {
     }
 }
 
+//ip And/Or/Xor for Bit
 macro_rules! bit_op {
     ($t:ty, $tr:ty, $trb:ty, $f:ident, $op:tt) => {
 
@@ -101,12 +99,14 @@ bit_op_assign! { std::ops::BitAndAssign<Bit>, std::ops::BitAndAssign<&Bit>, std:
 bit_op! { std::ops::BitXor<Bit>, std::ops::BitXor<&Bit>, std::ops::BitXor<bool>, bitxor, ^}
 bit_op_assign! { std::ops::BitXorAssign<Bit>, std::ops::BitXorAssign<&Bit>, std::ops::BitXorAssign<bool>, bitxor_assign, ^}
 
+//ip Debug for Bit
 impl std::fmt::Debug for Bit {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         self.0.fmt(fmt)
     }
 }
 
+//ip Hash for Bit
 impl std::hash::Hash for Bit {
     fn hash<H>(&self, h: &mut H)
     where
@@ -116,24 +116,42 @@ impl std::hash::Hash for Bit {
     }
 }
 
+//ip From<bool> for Bit
 impl From<bool> for Bit {
     fn from(b: bool) -> Bit {
         Self(b)
     }
 }
 
+//ip From<Bit> for bool
 impl From<Bit> for bool {
     fn from(b: Bit) -> bool {
         b.0
     }
 }
 
+//ip From<&Bit> for &bool
 impl<'a> From<&'a Bit> for &'a bool {
     fn from(b: &'a Bit) -> &'a bool {
         &b.0
     }
 }
 
+//ip Deref/DerefMut for Bit to &bool
+impl std::ops::Deref for Bit {
+    type Target = bool;
+    fn deref(&self) -> &bool {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for Bit {
+    fn deref_mut(&mut self) -> &mut bool {
+        &mut self.0
+    }
+}
+
+//ip AsRef<T> (+AsMut)for Bit if AsRef<T> for bool
 impl<T> AsRef<T> for Bit
 where
     T: ?Sized,
@@ -153,31 +171,8 @@ where
     }
 }
 
-impl std::ops::Deref for Bit {
-    type Target = bool;
-    fn deref(&self) -> &bool {
-        &self.0
-    }
-}
-
-impl std::ops::DerefMut for Bit {
-    fn deref_mut(&mut self) -> &mut bool {
-        &mut self.0
-    }
-}
-
-//ip SimValueObject for Bit
-impl SimValueObject for Bit {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-    fn try_as_u8s(&self) -> Option<&[u8]> {
-        Some(unsafe { utils::as_u8s(&self.0) })
-    }
-    fn try_as_u8s_mut(&mut self) -> Option<&mut [u8]> {
-        Some(unsafe { utils::as_u8s_mut(&mut self.0) })
-    }
-}
-
 //ip SimValue for Bit
 impl SimValue for Bit {}
+
+//ip SimBit for Bit
+impl SimBit for Bit {}

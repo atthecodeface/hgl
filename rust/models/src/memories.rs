@@ -134,9 +134,10 @@ where
     I: SimBv,
 {
     pub fn new(size: usize) -> Self {
-        let mut s = Self::default();
-        s.size = size;
-        s
+        Memory::<V, I> {
+            size,
+            ..Default::default()
+        }
     }
 }
 

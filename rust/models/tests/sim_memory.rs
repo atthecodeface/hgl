@@ -70,7 +70,8 @@ fn sim_memory() -> Result<(), String> {
         [6, 0, 0, 0, 0, 0, 0, 0]
     );
 
-    // assert!(false);
+    dbg!(&sim);
+    assert!(false);
 
     Ok(())
 }

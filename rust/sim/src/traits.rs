@@ -14,19 +14,37 @@ pub trait SimValueObject: std::any::Any + std::fmt::Debug {
     fn as_any(&self) -> &dyn std::any::Any;
 
     //ap try_as_u8s
-    /// Return the data contents as a slice of u8
-    ///
-    /// This can return an empty slice
+    /// Try to return the data contents as a slice of u8; this should
+    /// return None if the underlying value is not Copy
     fn try_as_u8s(&self) -> Option<&[u8]> {
         None
     }
 
-    //ap as_u8s
-    /// Return the data contents as a mutable slice of u8
+    //ap try_as_u8s_mut
+    /// Try to return the data contents as a mutable slice of u8; this
+    /// should return None if the underlying value is not Copy
     ///
-    /// This cannot fail
+    /// If a slice is returned and is to be updated, it will only be
+    /// overwritten by a manual implementation of 'copy' from an
+    /// identical type, so the value will remain valid.
     fn try_as_u8s_mut(&mut self) -> Option<&mut [u8]> {
         None
+    }
+}
+
+//it SimValueObject for T where Copy + 'static
+impl<T> SimValueObject for T
+where
+    T: std::any::Any + std::fmt::Debug + Copy + 'static,
+{
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn try_as_u8s(&self) -> Option<&[u8]> {
+        Some(unsafe { utils::as_u8s(self) })
+    }
+    fn try_as_u8s_mut(&mut self) -> Option<&mut [u8]> {
+        Some(unsafe { utils::as_u8s_mut(self) })
     }
 }
 
@@ -37,7 +55,7 @@ pub trait SimValueObject: std::any::Any + std::fmt::Debug {
 ///
 /// Add Serialize, Deserialize
 ///
-/// This is *not* an object-safe trait
+/// This is *not* a dyn-compatible trait
 pub trait SimValue:
     Sized
     + Copy
@@ -45,6 +63,8 @@ pub trait SimValue:
     + std::cmp::PartialEq
     + std::cmp::Eq
     + std::hash::Hash
+    + for<'de> serde::Deserialize<'de>
+    + serde::Serialize
     + SimValueObject
 {
 }
@@ -60,27 +80,42 @@ pub trait SimArray<V: SimValue>:
 pub trait SimStruct: SimValue {}
 
 //tt SimBit
-///
-pub trait SimBit:
-    SimValue
-    + std::cmp::PartialOrd
-    + std::cmp::Ord
-    + std::ops::Not<Output = Self>
-    + std::ops::BitAnd<Self, Output = Self>
-    + std::ops::BitAndAssign<Self>
-    + for<'a> std::ops::BitAnd<&'a Self, Output = Self>
-    + for<'a> std::ops::BitAndAssign<&'a Self>
-    + std::ops::BitOr<Self, Output = Self>
-    + std::ops::BitOrAssign<Self>
-    + for<'a> std::ops::BitOr<&'a Self, Output = Self>
-    + for<'a> std::ops::BitOrAssign<&'a Self>
-    + std::ops::BitXor<Self, Output = Self>
-    + std::ops::BitXorAssign<Self>
-    + for<'a> std::ops::BitXor<&'a Self, Output = Self>
-    + for<'a> std::ops::BitXorAssign<&'a Self>
-    + From<bool>
+/// Any type that can be used as a single bit value by a simulation
+pub trait SimBit
+where
+    bool: From<Self>,
+    for<'a> &'a bool: From<&'a Self>,
+    Self: SimValue
+        + From<bool>
+        + std::cmp::PartialOrd
+        + std::cmp::Ord
+        + std::ops::Not<Output = Self>
+        + std::ops::BitAnd<Self, Output = Self>
+        + std::ops::BitAndAssign<Self>
+        + for<'a> std::ops::BitAnd<&'a Self, Output = Self>
+        + for<'a> std::ops::BitAndAssign<&'a Self>
+        + std::ops::BitOr<Self, Output = Self>
+        + std::ops::BitOrAssign<Self>
+        + for<'a> std::ops::BitOr<&'a Self, Output = Self>
+        + for<'a> std::ops::BitOrAssign<&'a Self>
+        + std::ops::BitXor<Self, Output = Self>
+        + std::ops::BitXorAssign<Self>
+        + for<'a> std::ops::BitXor<&'a Self, Output = Self>
+        + for<'a> std::ops::BitXorAssign<&'a Self>,
 {
-    fn randomize<F: FnMut() -> u64>(f: &mut F) -> Self;
+    fn randomize<F: FnMut() -> u64>(f: &mut F) -> Self {
+        ((f() & 1) != 0).into()
+    }
+
+    #[inline]
+    fn is_true(&self) -> bool {
+        (*self).into()
+    }
+
+    #[inline]
+    fn is_false(&self) -> bool {
+        !self.is_true()
+    }
 }
 
 //tt SimBv

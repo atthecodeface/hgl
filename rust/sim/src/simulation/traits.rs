@@ -139,11 +139,15 @@ pub trait Component: Simulatable {
     /// Clocks are usually input ports
     fn port_info(&self, output: bool, index: usize) -> Option<PortInfo>;
 
-    fn try_state_data(&self, index: usize) -> Option<PortData> {
+    /// Return state *data* for an index that matches that for
+    /// state_info, if the data provides SimValueObject
+    fn try_state_data(&self, _index: usize) -> Option<PortData> {
         None
     }
 
-    fn try_state_data_mut(&mut self, index: usize) -> Option<PortDataMut> {
+    /// Return mutable state *data* for an index that matches that for
+    /// state_info, if the data provides SimValueObject
+    fn try_state_data_mut(&mut self, _index: usize) -> Option<PortDataMut> {
         None
     }
 

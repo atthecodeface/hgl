@@ -26,11 +26,32 @@ impl From<usize> for SimNsName {
     }
 }
 
+//ip  SimNsName
+impl SimNsName {
+    pub fn is_root(&self) -> bool {
+        self.0 == 0
+    }
+}
+
 //a NsName
+//tp NsName
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct NsName {
     namespace: SimNsName,
     name: Name,
+}
+
+//ip  NsName
+impl NsName {
+    pub fn is_root(&self) -> bool {
+        self.namespace.0 == 0
+    }
+    pub fn name(&self) -> Name {
+        self.name
+    }
+    pub fn namespace(&self) -> SimNsName {
+        self.namespace
+    }
 }
 
 //ip PartialOrd for NsName
@@ -93,6 +114,14 @@ impl std::ops::Index<Name> for Names {
     }
 }
 
+//ip Index<SimNsName> for Names
+impl std::ops::Index<SimNsName> for Names {
+    type Output = NsName;
+    fn index(&self, n: SimNsName) -> &NsName {
+        &self.namespace_names[n.0]
+    }
+}
+
 //ip Names
 impl Names {
     pub fn root_namespace(&self) -> NsName {
@@ -100,7 +129,7 @@ impl Names {
     }
 
     fn add_full_name(&mut self, f: NsName) -> SimNsName {
-        let n = self.pool.len().into();
+        let n = self.namespace_names.len().into();
         self.namespace_names.push(f);
         self.namespace_name_index.insert(f, n);
         n
@@ -146,8 +175,29 @@ impl Names {
             self.add_string(s)
         }
     }
+
     pub fn add_name<S: Into<String> + AsRef<str>>(&mut self, s: S) -> Name {
         self.insert_pool(s)
+    }
+
+    pub fn fmt_name(
+        &self,
+        fmt: &mut std::fmt::Formatter,
+        name: Name,
+    ) -> Result<(), std::fmt::Error> {
+        fmt.write_str(&self[name])
+    }
+    pub fn fmt_ns_name(
+        &self,
+        fmt: &mut std::fmt::Formatter,
+        name: SimNsName,
+    ) -> Result<(), std::fmt::Error> {
+        let ns_name = self[name];
+        if !ns_name.namespace.is_root() {
+            self.fmt_ns_name(fmt, ns_name.namespace)?;
+            fmt.write_str(".")?;
+        }
+        self.fmt_name(fmt, ns_name.name())
     }
 }
 
