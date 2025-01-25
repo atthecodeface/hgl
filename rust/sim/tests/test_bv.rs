@@ -1,4 +1,30 @@
-use hgl_sim::prelude::*;
+use hgl_sim::prelude::sim::*;
+
+#[test]
+fn format() -> Result<(), String> {
+    for i in 0..128 {
+        assert_eq!(
+            &SimFormatValue::value_string(&Bv::<7>::of_u64(i), SIM_FMT_AS_BIN),
+            &format!("{:07b}", i)
+        );
+        assert_eq!(
+            &SimFormatValue::value_string(&Bv::<7>::of_u64(i), SIM_FMT_AS_HEX | SIM_FMT_AS_BIN),
+            &format!("{:02x}", i)
+        );
+        assert_eq!(
+            &SimFormatValue::value_string(&Bv::<7>::of_u64(i), SIM_FMT_AS_BIN | SIM_FMT_HDR),
+            &format!("7b{:07b}", i)
+        );
+        assert_eq!(
+            &SimFormatValue::value_string(
+                &Bv::<7>::of_u64(i),
+                SIM_FMT_AS_HEX | SIM_FMT_AS_BIN | SIM_FMT_HDR
+            ),
+            &format!("7h{:02x}", i)
+        );
+    }
+    Ok(())
+}
 
 fn test_bvn<const N: usize>() -> Result<(), String>
 where

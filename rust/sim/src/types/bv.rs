@@ -340,9 +340,11 @@ impl<const NB: usize> SimValue for Bv<NB>
 where
     BvN<{ NB }>: IsBv,
 {
-    fn bit_width(&self) -> usize {
-        NB
-    }
+    const BIT_WIDTH: usize = NB;
+    const NYBBLE_WIDTH: usize = (NB + 3) / 4;
+    const BYTE_WIDTH: usize = (NB + 7) / 8;
+    const FMT_HEX: bool = true;
+    const FMT_BIN: bool = true;
 }
 
 //ip SimBv for Bv

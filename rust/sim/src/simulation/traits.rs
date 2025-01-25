@@ -1,5 +1,6 @@
 //a Imports
-use crate::simulation::{PortData, PortDataMut, PortInfo, SimNsName, SimReset};
+use crate::simulation::{PortInfo, SimNsName, SimReset};
+use crate::types::{SimValueRef, SimValueRefMut};
 
 //a Simulation traits
 //tt SimHandle
@@ -141,13 +142,13 @@ pub trait Component: Simulatable {
 
     /// Return state *data* for an index that matches that for
     /// state_info, if the data provides SimValueObject
-    fn try_state_data(&self, _index: usize) -> Option<PortData> {
+    fn try_state_data(&self, _index: usize) -> Option<SimValueRef> {
         None
     }
 
     /// Return mutable state *data* for an index that matches that for
     /// state_info, if the data provides SimValueObject
-    fn try_state_data_mut(&mut self, _index: usize) -> Option<PortDataMut> {
+    fn try_state_data_mut(&mut self, _index: usize) -> Option<SimValueRefMut> {
         None
     }
 

@@ -173,9 +173,10 @@ where
 
 //ip SimValue for Bit
 impl SimValue for Bit {
-    fn bit_width(&self) -> usize {
-        1
-    }
+    const BIT_WIDTH: usize = 1;
+    const NYBBLE_WIDTH: usize = 1;
+    const BYTE_WIDTH: usize = 1;
+    const FMT_BIN: bool = true;
 }
 
 //ip SimBit for Bit

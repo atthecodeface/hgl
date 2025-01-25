@@ -1,7 +1,11 @@
 //a Imports
 use crate::types::U8Ops;
 use crate::types::{BitRange, BitRangeMut};
+use crate::types::{SIM_FMT_AS_BIN, SIM_FMT_AS_HEX, SIM_FMT_HDR};
 use crate::utils;
+
+//a Constants
+const MAX_STRING_LENGTH: usize = 256;
 
 //a Traits
 //tt SimValueObject
@@ -14,6 +18,12 @@ pub trait SimValueObject: std::any::Any + std::fmt::Debug {
     fn as_any(&self) -> &dyn std::any::Any;
     fn bit_width(&self) -> usize {
         0
+    }
+    fn num_subelements(&self) -> usize {
+        0
+    }
+    fn get_subelement(&self, _n: usize) -> Option<(&str, &dyn SimValueObject)> {
+        None
     }
 
     //ap try_as_u8s
@@ -42,6 +52,15 @@ pub trait SimValueObject: std::any::Any + std::fmt::Debug {
     fn might_equal(&self, _other: &dyn std::any::Any) -> bool {
         false
     }
+
+    //mp fmt_with
+    fn fmt_with(
+        &self,
+        _fmt: &mut std::fmt::Formatter,
+        _style: usize,
+    ) -> Result<(), std::fmt::Error> {
+        Ok(())
+    }
 }
 
 //it SimValueObject for T where SimValue
@@ -53,7 +72,13 @@ where
         self
     }
     fn bit_width(&self) -> usize {
-        <Self as SimValue>::bit_width(self)
+        <Self as SimValue>::BIT_WIDTH
+    }
+    fn num_subelements(&self) -> usize {
+        <Self as SimValue>::NUM_SUBELEMENTS
+    }
+    fn get_subelement(&self, n: usize) -> Option<(&str, &dyn SimValueObject)> {
+        <Self as SimValue>::get_subelement(self, n)
     }
     fn try_as_u8s(&self) -> Option<&[u8]> {
         Some(unsafe { utils::as_u8s(self) })
@@ -71,14 +96,47 @@ where
         let sd = unsafe { utils::as_u8s(self) };
         sd == od
     }
+    fn fmt_with(&self, fmt: &mut std::fmt::Formatter, style: usize) -> Result<(), std::fmt::Error> {
+        let mut ascii_store = [b'0'; MAX_STRING_LENGTH];
+        let mut ascii = ascii_store.as_mut_slice();
+        let mut hdr_char = 'b';
+        if (style & SIM_FMT_AS_HEX) != 0 && (<Self as SimValue>::FMT_HEX) {
+            assert!(
+                (<Self as SimValue>::BIT_WIDTH + 3) / 4 < MAX_STRING_LENGTH,
+                "Need to restrict length of hex string"
+            );
+            hdr_char = 'h';
+            ascii = &mut ascii[0..(<Self as SimValue>::BIT_WIDTH + 3) / 4];
+            if !(<Self as SimValue>::fmt_hex(self, ascii)) {
+                utils::fmt_hex(self, ascii);
+            }
+        } else if (style & SIM_FMT_AS_BIN) != 0 && (<Self as SimValue>::FMT_BIN) {
+            assert!(
+                <Self as SimValue>::BIT_WIDTH < MAX_STRING_LENGTH,
+                "Need to restrict length of hex string"
+            );
+            ascii = &mut ascii[0..<Self as SimValue>::BIT_WIDTH];
+            if !(<Self as SimValue>::fmt_bin(self, ascii)) {
+                utils::fmt_bin(self, ascii);
+            }
+        }
+        let ascii = unsafe { std::str::from_utf8_unchecked(ascii) };
+        if (style & SIM_FMT_HDR) == 0 {
+            fmt.write_str(ascii)
+        } else {
+            write!(
+                fmt,
+                "{}{}{}",
+                <Self as SimValue>::BIT_WIDTH,
+                hdr_char,
+                ascii
+            )
+        }
+    }
 }
 
 //tt SimValue
-/// Trait supported by SimBit, SimBv, etc
-///
-/// All values must provide this
-///
-/// Add Serialize, Deserialize
+/// Trait supported by most simulatable values
 ///
 /// This is *not* a dyn-compatible trait
 pub trait SimValue:
@@ -92,7 +150,28 @@ pub trait SimValue:
     + serde::Serialize
     + SimValueObject
 {
-    fn bit_width(&self) -> usize;
+    const BIT_WIDTH: usize;
+    const NYBBLE_WIDTH: usize;
+    const BYTE_WIDTH: usize;
+    const FMT_HEX: bool = false;
+    const FMT_BIN: bool = false;
+    const NUM_SUBELEMENTS: usize = 0;
+
+    fn get_subelement(&self, n: usize) -> Option<(&str, &dyn SimValueObject)> {
+        None
+    }
+
+    /// Implement this to override the default hex data-to-ascii
+    /// conversion, which uses 'Self' as a slice of u8
+    fn fmt_hex(&self, _ascii: &mut [u8]) -> bool {
+        false
+    }
+
+    /// Implement this to override the default binary data-to-ascii
+    /// conversion, which uses 'Self' as a slice of u8
+    fn fmt_bin(&self, _ascii: &mut [u8]) -> bool {
+        false
+    }
 }
 
 //tt SimArray
@@ -199,6 +278,13 @@ pub trait SimBv:
 
     //ap num_bits - return size of the data in number of bits
     fn num_bits(&self) -> usize;
+
+    //ap of_u64 - create given a specific value
+    fn of_u64(value: u64) -> Self {
+        let mut s = Self::default();
+        s.set_u64(value);
+        s
+    }
 
     //ap set_u64 - set to a u64 value, usually for testing
     fn set_u64(&mut self, mut value: u64) {

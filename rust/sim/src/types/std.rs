@@ -3,9 +3,10 @@ use crate::{SimBit, SimBv, SimValue};
 
 //a Trait impls for bool
 impl SimValue for bool {
-    fn bit_width(&self) -> usize {
-        1
-    }
+    const BIT_WIDTH: usize = 1;
+    const NYBBLE_WIDTH: usize = 1;
+    const BYTE_WIDTH: usize = 1;
+    const FMT_BIN: bool = true;
 }
 
 impl SimBit for bool {}
@@ -14,9 +15,11 @@ impl SimBit for bool {}
 macro_rules! impl_sim_value {
     ($t:ty, $nb:expr) => {
         impl SimValue for std::num::Wrapping<$t> {
-            fn bit_width(&self) -> usize {
-                std::mem::size_of::<Self>() * 8
-            }
+            const BIT_WIDTH: usize = std::mem::size_of::<Self>() * 8;
+            const NYBBLE_WIDTH: usize = std::mem::size_of::<Self>() * 2;
+            const BYTE_WIDTH: usize = std::mem::size_of::<Self>();
+            const FMT_HEX: bool = true;
+            const FMT_BIN: bool = true;
         }
     };
 }

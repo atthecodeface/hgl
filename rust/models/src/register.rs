@@ -130,9 +130,9 @@ where
             INPUT_PORTS.get(index).copied()
         }
     }
-    fn try_state_data(&self, index: usize) -> Option<PortData> {
+    fn try_state_data(&self, index: usize) -> Option<SimValueRef> {
         if index == 0 {
-            Some(PortData::of(&self.inputs.enable))
+            Some(SimValueRef::of(&self.inputs.enable))
         } else {
             None
         }

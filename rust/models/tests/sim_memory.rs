@@ -71,7 +71,7 @@ fn sim_memory() -> Result<(), String> {
     );
 
     dbg!(&sim);
-    assert!(false);
+    // assert!(false);
 
     Ok(())
 }

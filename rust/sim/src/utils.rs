@@ -107,3 +107,42 @@ pub unsafe fn as_u8s<T: Sized>(obj: &T) -> &[u8] {
 pub unsafe fn as_u8s_mut<T: Sized>(obj: &mut T) -> &mut [u8] {
     std::slice::from_raw_parts_mut((obj as *mut T).cast::<u8>(), size_of::<T>())
 }
+
+//fi
+pub fn fmt_hex<T: Sized>(obj: &T, ascii: &mut [u8]) {
+    let data = unsafe { as_u8s(obj) };
+    let dn = data.len() * 2;
+    let n = ascii.len();
+    for i in (0..n).rev() {
+        if i >= dn {
+            continue;
+        }
+        let mut d = data[i / 2];
+        if i & 1 != 0 {
+            d >>= 4;
+        } else {
+            d &= 0xf;
+        }
+        ascii[n - 1 - i] = {
+            if d > 9 {
+                d + b'a' - 10
+            } else {
+                d + b'0'
+            }
+        };
+    }
+}
+
+pub fn fmt_bin<T: Sized + std::fmt::Debug>(obj: &T, ascii: &mut [u8]) {
+    let data = unsafe { as_u8s(obj) };
+    let dn = data.len() * 8;
+    let n = ascii.len();
+    for i in (0..n).rev() {
+        if i >= dn {
+            continue;
+        }
+        let mut d = data[i / 8];
+        d >>= i & 7;
+        ascii[n - 1 - i] = b'0' + (d & 1);
+    }
+}
