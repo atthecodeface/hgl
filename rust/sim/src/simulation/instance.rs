@@ -168,32 +168,13 @@ impl Instance {
     ) -> Result<(), String> {
         let mut component = self.borrow_mut::<C>().unwrap();
         component.configure(sim, handle, config_fn())?;
-        let mut enum_inputs = true;
-        let mut enum_outputs = true;
         for i in 0..usize::MAX {
-            if !enum_inputs && !enum_outputs {
+            let Some(port_info) = component.state_info(i) else {
                 break;
-            }
-            if enum_inputs {
-                if let Some(port_info) = component.port_info(false, i) {
-                    let name = sim.add_name(port_info.name());
-                    if port_info.is_clock() {
-                        self.ports.borrow_mut().insert(name, Port::clock(i));
-                    } else {
-                        self.ports.borrow_mut().insert(name, Port::input(i));
-                    }
-                } else {
-                    enum_inputs = false;
-                }
-            }
-            if enum_outputs {
-                if let Some(port_info) = component.port_info(true, i) {
-                    let name = sim.add_name(port_info.name());
-                    self.ports.borrow_mut().insert(name, Port::output(i));
-                } else {
-                    enum_outputs = false;
-                }
-            }
+            };
+            let name = sim.add_name(port_info.name());
+            let port = Port::new(i, &port_info, None);
+            self.ports.borrow_mut().insert(name, port);
         }
         Ok(())
     }

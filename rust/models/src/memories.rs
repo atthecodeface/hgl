@@ -1,5 +1,16 @@
 use hgl_sim::prelude::component::*;
 
+//a STATE_INFO, Inputs, Outputs
+//ci STATE_INFO
+const STATE_INFO: &[PortInfo] = &[
+    PortInfo::clk("clk", 0),
+    PortInfo::input("read_enable", 1),
+    PortInfo::input("write_enable", 2),
+    PortInfo::input("address", 3),
+    PortInfo::input("write_data", 4),
+    PortInfo::output("read_valid", 0),
+    PortInfo::output("read_data", 1),
+];
 #[derive(Debug, Default)]
 pub struct Inputs<V, I>
 where
@@ -32,15 +43,6 @@ where
     inputs: Inputs<V, I>,
     outputs: Outputs<V>,
 }
-
-const INPUT_PORTS: &[PortInfo] = &[
-    PortInfo::clk("clk"),
-    PortInfo::data("read_enable"),
-    PortInfo::data("write_enable"),
-    PortInfo::data("address"),
-    PortInfo::data("write_data"),
-];
-const OUTPUT_PORTS: &[PortInfo] = &[PortInfo::data("read_value"), PortInfo::data("read_data")];
 
 impl<V, I> Simulatable for Memory<V, I>
 where
@@ -83,12 +85,8 @@ where
     type InputsMut<'a> = &'a mut Inputs<V, I>;
     type Inputs<'a> = &'a Inputs<V, I>;
     type Outputs<'a> = &'a Outputs<V>;
-    fn port_info(&self, output: bool, index: usize) -> Option<PortInfo> {
-        if output {
-            OUTPUT_PORTS.get(index).copied()
-        } else {
-            INPUT_PORTS.get(index).copied()
-        }
+    fn state_info(&self, index: usize) -> Option<PortInfo> {
+        STATE_INFO.get(index).copied()
     }
     fn try_state_data(&self, index: usize) -> Option<SimValueRef> {
         if index == 0 {

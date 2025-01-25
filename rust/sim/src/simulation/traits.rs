@@ -134,11 +134,15 @@ pub trait Component: Simulatable {
         Ok(())
     }
 
-    //ap port_info
-    /// Return the information for a specified input or output port
+    //ap state_info
+    /// Return some of the state information
     ///
-    /// Clocks are usually input ports
-    fn port_info(&self, output: bool, index: usize) -> Option<PortInfo>;
+    /// The PortInfo indicates whether the state is an input, output,
+    /// clock, internal state, etc
+    ///
+    /// If this returns None then the index is larger than the visible
+    /// state of the component
+    fn state_info(&self, index: usize) -> Option<PortInfo>;
 
     /// Return state *data* for an index that matches that for
     /// state_info, if the data provides SimValueObject

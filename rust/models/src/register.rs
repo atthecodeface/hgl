@@ -1,7 +1,16 @@
 //a Imports
 use hgl_sim::prelude::component::*;
 
-//a Inputs, Outputs
+//a STATE_INFO, Inputs, Outputs
+//ci STATE_INFO
+const STATE_INFO: &[PortInfo] = &[
+    PortInfo::clk("clk", 0),
+    PortInfo::input("reset_n", 1),
+    PortInfo::input("enable", 2),
+    PortInfo::input("data", 4),
+    PortInfo::output("q", 0),
+];
+
 //tp Inputs
 #[derive(Debug, Default)]
 pub struct Inputs<V>
@@ -35,14 +44,6 @@ where
     inputs: Inputs<V>,
     outputs: Outputs<V>,
 }
-
-const INPUT_PORTS: &[PortInfo] = &[
-    PortInfo::clk("clk"),
-    PortInfo::data("reset_n"),
-    PortInfo::data("enable"),
-    PortInfo::data("data"),
-];
-const OUTPUT_PORTS: &[PortInfo] = &[PortInfo::data("data")];
 
 //ip Register
 impl<V> Register<V>
@@ -123,12 +124,8 @@ where
     type InputsMut<'a> = &'a mut Inputs<V>;
     type Inputs<'a> = &'a Inputs<V>;
     type Outputs<'a> = &'a Outputs<V>;
-    fn port_info(&self, output: bool, index: usize) -> Option<PortInfo> {
-        if output {
-            OUTPUT_PORTS.get(index).copied()
-        } else {
-            INPUT_PORTS.get(index).copied()
-        }
+    fn state_info(&self, index: usize) -> Option<PortInfo> {
+        STATE_INFO.get(index).copied()
     }
     fn try_state_data(&self, index: usize) -> Option<SimValueRef> {
         if index == 0 {
