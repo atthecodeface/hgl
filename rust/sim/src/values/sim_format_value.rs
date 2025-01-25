@@ -22,7 +22,7 @@ impl<'a, T: SimValue> SimFormatValue<'a, T> {
 }
 
 //ip Display for SimFormatValue
-impl<'a, T: SimValue> std::fmt::Display for SimFormatValue<'a, T> {
+impl<T: SimValue> std::fmt::Display for SimFormatValue<'_, T> {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
         self.value.fmt_with(fmt, self.style)
     }

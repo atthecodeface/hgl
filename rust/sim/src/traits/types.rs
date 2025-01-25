@@ -153,7 +153,7 @@ pub trait SimValue:
     const FMT_BIN: bool = false;
     const NUM_SUBELEMENTS: usize = 0;
 
-    fn get_subelement(&self, n: usize) -> Option<(&str, &dyn SimValueObject)> {
+    fn get_subelement(&self, _n: usize) -> Option<(&str, &dyn SimValueObject)> {
         None
     }
 
