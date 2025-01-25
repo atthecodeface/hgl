@@ -1,15 +1,15 @@
 pub mod sim {
-    pub use crate::simulation::{Component, Simulatable, Simulation};
-    pub use crate::traits::{SimArray, SimBit, SimBv, SimStruct, SimValue, SimValueObject};
-    pub use crate::types::fmt;
-    pub use crate::types::{Bit, Bv, BvN, IsBv};
-    pub use crate::types::{SimFormatValue, SimValueRef, SimValueRefMut};
+    pub use crate::simulation::Simulation;
+    pub use crate::traits::{Component, Simulatable};
+    pub use crate::traits::{IsBv, SimArray, SimBit, SimBv, SimStruct, SimValue, SimValueObject};
+    pub use crate::value_types::{Bit, Bv, BvN};
+    pub use crate::values::fmt;
+    pub use crate::values::{SimFormatValue, SimValueRef, SimValueRefMut};
 }
 
 pub mod component {
     pub use super::sim::*;
-    pub use crate::simulation::{
-        ComponentBuilder, SimReset, SimStateIndex, SimStateInfo, Simulatable,
-    };
-    pub use crate::simulation::{SimHandle, SimNsName, SimRegister};
+    pub use crate::simulation::SimNsName;
+    pub use crate::simulation::{SimReset, SimStateIndex, SimStateInfo};
+    pub use crate::traits::{ComponentBuilder, SimHandle, SimRegister};
 }

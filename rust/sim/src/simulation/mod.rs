@@ -4,7 +4,6 @@ mod instance;
 mod names;
 mod port;
 mod simulation;
-mod traits;
 
 //a Exports
 pub use clock::{Clock, ClockArray, ClockIndex};
@@ -12,8 +11,6 @@ pub use instance::{Instance, InstanceArray, InstanceHandle, RefInstance, RefMutI
 pub use names::{Name, Names, NamespaceStack, SimNsName};
 pub use port::{SimStateIndex, SimStateInfo, StateDesc};
 pub use simulation::Simulation;
-pub use traits::{Component, ComponentBuilder, Simulatable};
-pub use traits::{SimHandle, SimRegister};
 
 //a Types
 //tp EdgeUse

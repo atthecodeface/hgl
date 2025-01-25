@@ -5,7 +5,7 @@ use crate::simulation::{
     Clock, ClockArray, ClockIndex, Instance, InstanceArray, InstanceHandle, Name, Names,
     NamespaceStack, RefInstance, RefMutInstance,
 };
-use crate::simulation::{Component, ComponentBuilder, SimHandle, SimRegister};
+use crate::traits::{Component, ComponentBuilder, SimHandle, SimRegister};
 
 //a SimulationControl
 #[derive(Default)]

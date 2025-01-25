@@ -2,7 +2,7 @@
 use serde::{Deserialize, Serialize};
 use std::ops::{Deref, DerefMut};
 
-use crate::{SimBit, SimValue};
+use crate::traits::{SimBit, SimValue};
 
 //a Bit
 //tp Bit

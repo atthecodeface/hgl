@@ -1,14 +1,10 @@
-use crate::types::{BvData, BvN, IsBv};
+//a Imports
+use crate::traits::{BvData, IsBv};
+use crate::utils;
+use crate::value_types::BvN;
 
-//ip BvData for u64
-#[inline]
-const fn mask_u64(n: usize) -> std::num::Wrapping<u64> {
-    if n >= 64 {
-        std::num::Wrapping(u64::MAX)
-    } else {
-        std::num::Wrapping((1 << n) - 1)
-    }
-}
+//a BvData for Wrapping<u64>
+//ip BvData for Wrapping<u64>
 impl BvData for std::num::Wrapping<u64> {
     fn zero<const NB: usize>(&mut self) {
         use std::num::Wrapping;
@@ -35,10 +31,10 @@ impl BvData for std::num::Wrapping<u64> {
         }
     }
     fn add_msk<const NB: usize>(&mut self, other: &Self) {
-        *self = (*self + *other) & mask_u64(NB);
+        *self = (*self + *other) & utils::mask_wrapping_u64_zero_none(NB);
     }
     fn sub_msk<const NB: usize>(&mut self, other: &Self) {
-        *self = (*self - *other) & mask_u64(NB);
+        *self = (*self - *other) & utils::mask_wrapping_u64_zero_none(NB);
     }
     fn bit_or<const NB: usize>(&mut self, other: &Self) {
         *self |= *other;
@@ -51,7 +47,7 @@ impl BvData for std::num::Wrapping<u64> {
     }
 }
 
-//a Implement IsBv for BvN< 1 .. 64> using u64 as backing store
+//a Implement IsBv for BvN< 1 .. 64> using Wrapping<u64> as backing store
 macro_rules! bv_int_uN {
     ($n:expr, $t:ty) => {
         impl IsBv for BvN<$n> {

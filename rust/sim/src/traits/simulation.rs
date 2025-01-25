@@ -1,6 +1,6 @@
 //a Imports
 use crate::simulation::{SimNsName, SimReset, SimStateIndex, SimStateInfo};
-use crate::types::{SimValueRef, SimValueRefMut};
+use crate::values::{SimValueRef, SimValueRefMut};
 
 //a Simulation traits
 //tt SimHandle

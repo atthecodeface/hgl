@@ -1,5 +1,5 @@
 //a Imports
-use crate::SimValueObject;
+use crate::traits::SimValueObject;
 
 //a SimValueRef
 //tp SimValueRef

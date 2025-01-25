@@ -1,6 +1,6 @@
 //fi mask_u8_zero_none
 #[allow(dead_code)]
-pub fn mask_u8_zero_none(n: usize) -> u8 {
+pub const fn mask_u8_zero_none(n: usize) -> u8 {
     if n >= 8 {
         255
     } else {
@@ -10,7 +10,7 @@ pub fn mask_u8_zero_none(n: usize) -> u8 {
 
 //fi mask_u8_zero_all
 #[allow(dead_code)]
-pub fn mask_u8_zero_all(n: usize) -> u8 {
+pub const fn mask_u8_zero_all(n: usize) -> u8 {
     if n >= 8 || n == 0 {
         255
     } else {
@@ -20,7 +20,7 @@ pub fn mask_u8_zero_all(n: usize) -> u8 {
 
 //fi mask_u64_zero_none
 #[allow(dead_code)]
-pub fn mask_u64_zero_none(n: usize) -> u64 {
+pub const fn mask_u64_zero_none(n: usize) -> u64 {
     if n >= 64 {
         u64::MAX
     } else {
@@ -38,6 +38,14 @@ pub fn mask_u64_zero_all(n: usize) -> u64 {
     }
 }
 
+#[inline]
+pub const fn mask_wrapping_u64_zero_none(n: usize) -> std::num::Wrapping<u64> {
+    if n >= 64 {
+        std::num::Wrapping(u64::MAX)
+    } else {
+        std::num::Wrapping((1 << n) - 1)
+    }
+}
 //fi num_u8_of_bits
 #[allow(dead_code)]
 pub const fn num_u8_of_bits(num_bits: usize) -> usize {

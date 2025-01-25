@@ -1,6 +1,7 @@
 //a Imports
-use crate::types::{fmt, BitRange, BitRangeMut, U8Ops};
+use crate::data::{BitRange, BitRangeMut, U8Ops};
 use crate::utils;
+use crate::values::fmt;
 
 //a Traits
 //tt SimValueObject

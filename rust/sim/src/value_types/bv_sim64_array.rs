@@ -1,5 +1,9 @@
-use crate::types::{BvData, BvN, IsBv};
+//a Imports
+use crate::traits::{BvData, IsBv};
+use crate::utils;
+use crate::value_types::BvN;
 
+//a BvData for arrays
 macro_rules! bv_data_for_std_array {
     ($n:expr, $t:ty, $bpt:expr) => {
         impl BvData for [$t; $n] {

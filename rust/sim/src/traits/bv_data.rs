@@ -1,5 +1,5 @@
 //a Imports
-use crate::types::U8Ops;
+use crate::data::U8Ops;
 use crate::utils;
 
 //a BvData trait

@@ -1,5 +1,5 @@
 //a Imports
-use crate::{SimBit, SimBv, SimValue};
+use crate::traits::{SimBit, SimBv, SimValue};
 
 //a Trait impls for bool
 impl SimValue for bool {

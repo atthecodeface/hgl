@@ -4,9 +4,9 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
-use crate::simulation::{Component, Simulatable};
 use crate::simulation::{Name, Names, SimNsName, SimStateIndex, Simulation, StateDesc};
-use crate::types::fmt;
+use crate::traits::{Component, Simulatable};
+use crate::values::fmt;
 
 //a RefMutInstance
 //tp RefMutInstance
