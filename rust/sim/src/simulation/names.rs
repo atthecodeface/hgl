@@ -141,8 +141,13 @@ impl Names {
         }
     }
 
+    //mi add_string
     fn add_string<S: Into<String>>(&mut self, s: S) -> Name {
         let s = s.into();
+        let pinned_string = Pin::new(s.clone());
+        let pinned_str: &'static str =
+            unsafe { std::mem::transmute::<_, _>(pinned_string.as_ref()) };
+        self.names.add(pinned_str, pinned_string);
         let n = self.pool.len();
         self.pool.push(Pin::new(s));
         let pn = n.into();
@@ -152,10 +157,12 @@ impl Names {
         pn
     }
 
+    //mi get_pool
     fn get_pool(&self, s: &str) -> Option<Name> {
         self.pool_index.get(s).copied()
     }
 
+    //mi insert_pool
     fn insert_pool<S: Into<String> + AsRef<str>>(&mut self, s: S) -> Name {
         if let Some(p) = self.get_pool(s.as_ref()) {
             p
@@ -164,14 +171,17 @@ impl Names {
         }
     }
 
+    //mp add_name
     pub fn add_name<S: Into<String> + AsRef<str>>(&mut self, s: S) -> Name {
         self.insert_pool(s)
     }
 
+    //mp find_name
     pub fn find_name<S: AsRef<str>>(&self, s: S) -> Option<Name> {
         self.get_pool(s.as_ref())
     }
 
+    //mp fmt_name
     pub fn fmt_name(
         &self,
         fmt: &mut std::fmt::Formatter,
@@ -179,6 +189,8 @@ impl Names {
     ) -> Result<(), std::fmt::Error> {
         fmt.write_str(&self[name])
     }
+
+    //mp fmt_ns_name
     pub fn fmt_ns_name(
         &self,
         fmt: &mut std::fmt::Formatter,

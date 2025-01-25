@@ -36,6 +36,7 @@ where
     index: HashMap<N, H>,
 }
 
+//ip Default for Array<N, H, D>
 impl<N, H, D> std::default::Default for Array<N, H, D>
 where
     N: Key,
