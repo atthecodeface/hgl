@@ -3,7 +3,7 @@ use std::cell::RefCell;
 
 use crate::simulation::{
     Clock, ClockArray, ClockIndex, Instance, InstanceArray, InstanceHandle, Name, Names,
-    NamespaceStack, RefInstance, RefMutInstance,
+    NamespaceStack, RefInstance, RefMutInstance, SimNsName,
 };
 use crate::traits::{Component, ComponentBuilder, SimHandle, SimRegister};
 
@@ -122,6 +122,15 @@ impl Simulation {
             .add_clock(full_name, delay, period, negedge_offset))
     }
 
+    //mp find_clock
+    /// Find a clock by name
+    pub fn find_clock(&self, name: SimNsName) -> Option<ClockIndex> {
+        None
+        // self
+        // .clocks
+        // .add_clock(full_name, delay, period, negedge_offset))
+    }
+
     //mp instantiate
     /// Instantiate a component in the simulation with a given name,
     /// using the specified [ComponentBuilder]
@@ -145,7 +154,8 @@ impl Simulation {
             .map_err(|_e| format!("Duplicate name {name} when trying to instantiate module"))?;
         drop(control);
         let component = CB::instantiate(self, full_name);
-        let handle = self.instances.add_instance(full_name, component)?;
+        let instance = Instance::new(full_name, component);
+        let handle = self.instances.add(full_name, instance);
         self.instances[handle].configure::<C, _>(self, handle, config_fn)?;
         Ok(handle)
     }

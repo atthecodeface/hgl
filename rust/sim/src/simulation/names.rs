@@ -2,29 +2,17 @@
 use std::collections::HashMap;
 use std::pin::Pin;
 
-//a Name
-//tp Name
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash)]
-pub struct Name(usize);
+use crate::make_handle;
+use crate::utils::Array;
 
-//ip From <usize> for Name
-impl From<usize> for Name {
-    fn from(p: usize) -> Name {
-        Name(p)
-    }
-}
+//a Name
+make_handle!(Name);
 
 //a SimNsName
 //tp SimNsName
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash)]
-pub struct SimNsName(usize);
+make_handle!(SimNsName);
 
-//ip From <usize> for SimNsName
-impl From<usize> for SimNsName {
-    fn from(f: usize) -> SimNsName {
-        SimNsName(f)
-    }
-}
+impl crate::traits::Key for SimNsName {}
 
 //ip  SimNsName
 impl SimNsName {
@@ -41,7 +29,10 @@ pub struct NsName {
     name: Name,
 }
 
-//ip  NsName
+//ip Key for NsName
+impl crate::traits::Key for NsName {}
+
+//ip NsName
 impl NsName {
     pub fn is_root(&self) -> bool {
         self.namespace.0 == 0
@@ -82,10 +73,10 @@ impl From<(SimNsName, Name)> for NsName {
 //a Names
 //tp Names
 pub struct Names {
+    names: Array<&'static str, Name, Pin<String>>,
     pool: Vec<Pin<String>>,
     pool_index: HashMap<&'static str, Name>,
-    namespace_names: Vec<NsName>,
-    namespace_name_index: HashMap<NsName, SimNsName>,
+    namespace_names: Array<NsName, SimNsName, NsName>,
 }
 
 //ip Default for Names
@@ -93,13 +84,13 @@ impl std::default::Default for Names {
     fn default() -> Self {
         let pool = vec![];
         let pool_index = HashMap::default();
-        let namespace_names = vec![NsName::default()];
-        let namespace_name_index = HashMap::default();
+        let names = Array::default();
+        let namespace_names = Array::default();
         let mut s = Self {
             pool,
             pool_index,
             namespace_names,
-            namespace_name_index,
+            names,
         };
         s.add_string("");
         s
@@ -118,25 +109,22 @@ impl std::ops::Index<Name> for Names {
 impl std::ops::Index<SimNsName> for Names {
     type Output = NsName;
     fn index(&self, n: SimNsName) -> &NsName {
-        &self.namespace_names[n.0]
+        &self.namespace_names[n]
     }
 }
 
 //ip Names
 impl Names {
     pub fn root_namespace(&self) -> NsName {
-        self.namespace_names[0]
+        self.namespace_names[0.into()]
     }
 
     fn add_full_name(&mut self, f: NsName) -> SimNsName {
-        let n = self.namespace_names.len().into();
-        self.namespace_names.push(f);
-        self.namespace_name_index.insert(f, n);
-        n
+        self.namespace_names.add(f, f)
     }
 
     fn get_full_name(&self, f: &NsName) -> Option<SimNsName> {
-        self.namespace_name_index.get(f).copied()
+        self.namespace_names.get(f)
     }
 
     pub fn insert_full_name(

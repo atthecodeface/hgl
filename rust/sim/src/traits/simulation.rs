@@ -163,7 +163,7 @@ pub trait Simulatable: std::any::Any {
     /// The reason could be simulation restart, or something 'weaker'
     fn reset(&mut self, _reason: SimReset) {}
 
-    //mp Clock
+    //mp clock
     /// Clock the component, with mask indicating which edges have occurred
     ///
     /// This should use the values in its Inputs, and update its outputs.
@@ -193,12 +193,14 @@ pub trait Simulatable: std::any::Any {
     /// state of the component
     fn state_info(&self, index: SimStateIndex) -> Option<SimStateInfo>;
 
+    //ap try_state_data
     /// Return state *data* for an index that matches that for
     /// state_info, if the data provides SimValueObject
     fn try_state_data(&self, _index: SimStateIndex) -> Option<SimValueRef> {
         None
     }
 
+    //ap try_state_data_mut
     /// Return mutable state *data* for an index that matches that for
     /// state_info, if the data provides SimValueObject
     fn try_state_data_mut(&mut self, _index: SimStateIndex) -> Option<SimValueRefMut> {

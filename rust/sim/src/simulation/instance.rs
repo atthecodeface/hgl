@@ -4,8 +4,10 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
+use crate::make_handle;
 use crate::simulation::{Name, Names, SimNsName, SimStateIndex, Simulation, StateDesc};
 use crate::traits::{Component, SimBit, SimBv, SimValue, Simulatable};
+use crate::utils::Array;
 use crate::values::fmt;
 
 //a RefMutInstance
@@ -112,15 +114,7 @@ impl<C: Component + 'static> RefInstance<'_, C> {
 
 //a InstanceHandle
 //tp InstanceHandle
-#[derive(Debug, Clone, Copy)]
-pub struct InstanceHandle(usize);
-
-//ip From<usize> for InstanceHandle
-impl From<usize> for InstanceHandle {
-    fn from(n: usize) -> Self {
-        Self(n)
-    }
-}
+make_handle!(InstanceHandle);
 
 //a Instance
 //tp Instance
@@ -250,44 +244,4 @@ impl Instance {
 
 //a InstanceArray
 //tp InstanceArray
-#[derive(Default)]
-pub struct InstanceArray {
-    instances: Vec<Instance>,
-    index: HashMap<SimNsName, InstanceHandle>,
-}
-
-//ip Index<InstanceHandle> for InstanceArray
-impl std::ops::Index<InstanceHandle> for InstanceArray {
-    type Output = Instance;
-    fn index(&self, n: InstanceHandle) -> &Instance {
-        &self.instances[n.0]
-    }
-}
-
-//ip IntoIter for InstanceArray
-impl<'a> std::iter::IntoIterator for &'a InstanceArray {
-    type Item = &'a Instance;
-    type IntoIter = std::slice::Iter<'a, Instance>;
-
-    // Required method
-    fn into_iter(self) -> std::slice::Iter<'a, Instance> {
-        self.instances.iter()
-    }
-}
-
-//ip InstanceArray
-impl InstanceArray {
-    //mp add_instance
-    /// Add a new instance to the array and return its handle
-    pub fn add_instance<C: Component>(
-        &mut self,
-        name: SimNsName,
-        component: C,
-    ) -> Result<InstanceHandle, String> {
-        let instance = Instance::new(name, component);
-        let handle = self.instances.len().into();
-        self.instances.push(instance);
-        self.index.insert(name, handle);
-        Ok(handle)
-    }
-}
+pub type InstanceArray = Array<SimNsName, InstanceHandle, Instance>;
