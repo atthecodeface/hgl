@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use crate::simulation::{Name, Names, SimNsName, SimStateIndex, Simulation, StateDesc};
-use crate::traits::{Component, Simulatable};
+use crate::traits::{Component, SimBit, SimBv, SimValue, Simulatable};
 use crate::values::fmt;
 
 //a RefMutInstance
@@ -67,7 +67,7 @@ impl<C: Component + 'static> RefMutInstance<'_, C> {
     }
 }
 
-//ip Deref for RefInstance
+//ip RefInstance
 impl<C: Component + 'static> RefInstance<'_, C> {
     /// Borrow the inputs as immutable
     pub fn inputs(&self) -> C::Inputs<'_> {
@@ -77,6 +77,36 @@ impl<C: Component + 'static> RefInstance<'_, C> {
     /// Borrow the outputs as immutable
     pub fn outputs(&self) -> C::Outputs<'_> {
         self.l.as_any().downcast_ref::<C>().unwrap().outputs()
+    }
+    pub fn try_as_t<V: SimValue>(&self, s: SimStateIndex) -> Option<V> {
+        self.l.as_any().downcast_ref::<C>().and_then(|c| {
+            c.try_state_data(s)
+                .and_then(|sd| sd.try_as_t::<V>().copied())
+        })
+    }
+    pub fn as_t<V: SimValue>(&self, s: SimStateIndex) -> V {
+        self.try_as_t(s).unwrap()
+    }
+    pub fn try_as_u64<V: SimBv>(&self, s: SimStateIndex) -> Option<u64> {
+        self.l
+            .as_any()
+            .downcast_ref::<C>()
+            .unwrap()
+            .try_state_data(s)
+            .and_then(|v| v.try_as_u64::<V>())
+    }
+    pub fn try_as_bool<V>(&self, s: SimStateIndex) -> Option<bool>
+    where
+        V: SimBit,
+        bool: From<V>,
+        for<'b> &'b bool: From<&'b V>,
+    {
+        self.l
+            .as_any()
+            .downcast_ref::<C>()
+            .unwrap()
+            .try_state_data(s)
+            .and_then(|v| v.try_as_bool::<V>())
     }
 }
 

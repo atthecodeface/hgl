@@ -25,6 +25,23 @@ fn sim_counter() -> Result<(), String> {
             32,
             "Value at reset should be the reset value"
         );
+        assert_eq!(
+            inst.try_state_data(q)
+                .and_then(|v| v.try_as_u64::<T>())
+                .unwrap(),
+            32,
+            "Value at reset should be the reset value"
+        );
+        assert_eq!(
+            sim.inst::<Counter<T>>(cntr).try_as_u64::<T>(q).unwrap(),
+            32,
+            "Value at reset should be the reset value"
+        );
+        assert_eq!(
+            sim.inst::<Counter<T>>(cntr).as_t::<T>(q).try_as_u64(),
+            Some(32),
+            "Value at reset should be the reset value"
+        );
     }
 
     Ok(())

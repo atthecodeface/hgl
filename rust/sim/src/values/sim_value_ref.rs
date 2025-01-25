@@ -1,5 +1,5 @@
 //a Imports
-use crate::traits::{SimValue, SimValueObject};
+use crate::traits::{SimBit, SimBv, SimValue, SimValueObject};
 
 //a SimValueRef
 //tp SimValueRef
@@ -17,6 +17,23 @@ impl<'a> SimValueRef<'a> {
     }
     pub fn value<V: SimValue>(&self) -> Option<V> {
         self.value.as_any().downcast_ref::<V>().copied()
+    }
+    pub fn try_as_t<V: SimValue>(&self) -> Option<&V> {
+        self.value.as_any().downcast_ref::<V>()
+    }
+    pub fn as_t<V: SimValue>(&self) -> &V {
+        self.try_as_t().unwrap()
+    }
+    pub fn try_as_u64<V: SimBv>(&self) -> Option<u64> {
+        self.try_as_t().and_then(|v: &V| v.try_as_u64())
+    }
+    pub fn try_as_bool<V>(&self) -> Option<bool>
+    where
+        V: SimBit,
+        bool: From<V>,
+        for<'b> &'b bool: From<&'b V>,
+    {
+        self.try_as_t().map(|v: &V| v.is_true())
     }
     pub fn as_any(&self) -> &dyn std::any::Any {
         self.value.as_any()
@@ -70,6 +87,23 @@ impl<'a> SimValueRefMut<'a> {
     }
     pub fn value<V: SimValue>(&self) -> Option<V> {
         self.value.as_any().downcast_ref::<V>().copied()
+    }
+    pub fn as_t<V: SimValue>(&self) -> &V {
+        self.value.as_any().downcast_ref::<V>().unwrap()
+    }
+    pub fn try_as_u64<V: SimBv>(&self) -> Option<u64> {
+        self.value
+            .as_any()
+            .downcast_ref::<V>()
+            .and_then(|v| v.try_as_u64())
+    }
+    pub fn try_as_bool<V>(&self) -> Option<bool>
+    where
+        V: SimBit,
+        bool: From<V>,
+        for<'b> &'b bool: From<&'b V>,
+    {
+        self.value.as_any().downcast_ref::<V>().map(|v| v.is_true())
     }
     // pub fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
     // self.value.as_any()
