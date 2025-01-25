@@ -72,4 +72,10 @@ impl Port {
             type_id,
         }
     }
+    pub fn state_index(&self) -> usize {
+        self.state_index
+    }
+    pub fn state_type(&self) -> StateType {
+        self.state_type
+    }
 }

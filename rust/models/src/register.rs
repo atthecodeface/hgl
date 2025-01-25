@@ -113,6 +113,27 @@ where
     /// it is increased on each call, starting at 0 for the first
     /// after a clock edge)
     fn propagate(&mut self, _stage: usize) {}
+    fn state_info(&self, index: usize) -> Option<PortInfo> {
+        STATE_INFO.get(index).copied()
+    }
+    fn try_state_data(&self, index: usize) -> Option<SimValueRef> {
+        match index {
+            1 => Some(SimValueRef::of(&self.inputs.reset_n)),
+            2 => Some(SimValueRef::of(&self.inputs.enable)),
+            3 => Some(SimValueRef::of(&self.inputs.data)),
+            4 => Some(SimValueRef::of(&self.outputs.data)),
+            _ => None,
+        }
+    }
+    fn try_state_data_mut(&mut self, index: usize) -> Option<SimValueRefMut> {
+        match index {
+            1 => Some(SimValueRefMut::of(&mut self.inputs.reset_n)),
+            2 => Some(SimValueRefMut::of(&mut self.inputs.enable)),
+            3 => Some(SimValueRefMut::of(&mut self.inputs.data)),
+            4 => Some(SimValueRefMut::of(&mut self.outputs.data)),
+            _ => None,
+        }
+    }
 }
 
 //ip Component for Register
@@ -124,16 +145,6 @@ where
     type InputsMut<'a> = &'a mut Inputs<V>;
     type Inputs<'a> = &'a Inputs<V>;
     type Outputs<'a> = &'a Outputs<V>;
-    fn state_info(&self, index: usize) -> Option<PortInfo> {
-        STATE_INFO.get(index).copied()
-    }
-    fn try_state_data(&self, index: usize) -> Option<SimValueRef> {
-        if index == 0 {
-            Some(SimValueRef::of(&self.inputs.enable))
-        } else {
-            None
-        }
-    }
     fn inputs(&self) -> &Inputs<V> {
         &self.inputs
     }

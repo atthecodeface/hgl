@@ -6,6 +6,7 @@ use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use crate::simulation::{Component, Simulatable};
 use crate::simulation::{Name, Names, Port, SimNsName, Simulation};
+use crate::types::{SIM_FMT_AS_BIN, SIM_FMT_AS_HEX, SIM_FMT_HDR};
 
 //a RefMutInstance
 //tp RefMutInstance
@@ -107,7 +108,7 @@ pub struct Instance {
     /// be simulated by different threads at the same time
     simulatable: RwLock<Box<dyn Simulatable + 'static>>,
 
-    ports: RefCell<HashMap<Name, Port>>,
+    state_map: RefCell<HashMap<Name, Port>>,
 }
 
 //ip Debug for Instance
@@ -123,11 +124,11 @@ impl Instance {
     pub fn new<S: Simulatable + 'static>(name: SimNsName, s: S) -> Self {
         let s: Box<dyn Simulatable + 'static> = Box::new(s);
         let simulatable = RwLock::new(s);
-        let ports = RefCell::new(HashMap::default());
+        let state_map = RefCell::new(HashMap::default());
         Self {
             name,
             simulatable,
-            ports,
+            state_map,
         }
     }
 
@@ -151,11 +152,14 @@ impl Instance {
 
     //ap borrow
     /// Borrow the instance immutably as the correct [Component] type
-    pub fn borrow<C: Component + 'static>(&self) -> RefInstance<'_, C> {
-        let l = self.simulatable.read().unwrap();
-        RefInstance {
-            l,
-            phantom: PhantomData,
+    pub fn borrow<C: Component + 'static>(&self) -> Option<RefInstance<'_, C>> {
+        let l = self.simulatable.try_read();
+        match l {
+            Ok(l) => Some(RefInstance {
+                l,
+                phantom: PhantomData,
+            }),
+            Err(_) => None,
         }
     }
 
@@ -174,7 +178,7 @@ impl Instance {
             };
             let name = sim.add_name(port_info.name());
             let port = Port::new(i, &port_info, None);
-            self.ports.borrow_mut().insert(name, port);
+            self.state_map.borrow_mut().insert(name, port);
         }
         Ok(())
     }
@@ -184,12 +188,22 @@ impl Instance {
         &self,
         fmt: &mut std::fmt::Formatter,
         names: &Names,
+        include_values: bool,
     ) -> Result<(), std::fmt::Error> {
         fmt.write_str("Instance['")?;
         names.fmt_ns_name(fmt, self.name())?;
-        fmt.write_str("'")?;
-        for (n, _p) in self.ports.borrow().iter() {
+        fmt.write_str("': ")?;
+        for (n, p) in self.state_map.borrow().iter() {
             names.fmt_name(fmt, *n)?;
+            if include_values {
+                if let Ok(s) = self.simulatable.try_read() {
+                    fmt.write_str("=")?;
+                    if let Some(x) = s.try_state_data(p.state_index()) {
+                        x.value()
+                            .fmt_with(fmt, SIM_FMT_AS_HEX | SIM_FMT_AS_BIN | SIM_FMT_HDR)?;
+                    }
+                }
+            }
             fmt.write_str(", ")?;
         }
         fmt.write_str("]")

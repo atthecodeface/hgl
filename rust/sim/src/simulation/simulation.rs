@@ -53,7 +53,7 @@ impl std::fmt::Debug for Simulation {
             fmt.write_str("'")?;
             self.control.borrow().names.fmt_ns_name(fmt, inst.name())?;
 
-            inst.fmt_full(fmt, &self.control.borrow().names)?;
+            inst.fmt_full(fmt, &self.control.borrow().names, true)?;
 
             fmt.write_str("'")?;
         }
@@ -170,7 +170,7 @@ impl Simulation {
     //ap inst
     /// Get a reference to a component instance given its handle
     pub fn inst<C: Component>(&self, handle: InstanceHandle) -> RefInstance<C> {
-        self.instances[handle].borrow()
+        self.instances[handle].borrow().unwrap()
     }
 
     //ap inst_mut

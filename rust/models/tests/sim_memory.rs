@@ -23,6 +23,9 @@ fn sim_memory() -> Result<(), String> {
         let inputs = mem.inputs_mut();
         inputs.read_enable |= true;
     }
+
+    dbg!(&sim);
+
     // mem : RefMutInstance<Mem32x32>
     let mut mem = sim.inst_mut::<Mem32x31>(mem1);
     mem.inputs_mut().read_enable &= false;

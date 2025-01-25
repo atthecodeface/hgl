@@ -134,28 +134,6 @@ pub trait Component: Simulatable {
         Ok(())
     }
 
-    //ap state_info
-    /// Return some of the state information
-    ///
-    /// The PortInfo indicates whether the state is an input, output,
-    /// clock, internal state, etc
-    ///
-    /// If this returns None then the index is larger than the visible
-    /// state of the component
-    fn state_info(&self, index: usize) -> Option<PortInfo>;
-
-    /// Return state *data* for an index that matches that for
-    /// state_info, if the data provides SimValueObject
-    fn try_state_data(&self, _index: usize) -> Option<SimValueRef> {
-        None
-    }
-
-    /// Return mutable state *data* for an index that matches that for
-    /// state_info, if the data provides SimValueObject
-    fn try_state_data_mut(&mut self, _index: usize) -> Option<SimValueRefMut> {
-        None
-    }
-
     //ap inputs_mut
     /// Borrow the inputs as mutable
     fn inputs_mut(&mut self) -> Self::InputsMut<'_>;
@@ -204,4 +182,25 @@ pub trait Simulatable: std::any::Any {
     /// it is increased on each call, starting at 0 for the first
     /// after a clock edge)
     fn propagate(&mut self, _stage: usize) {}
+    //ap state_info
+    /// Return some of the state information
+    ///
+    /// The PortInfo indicates whether the state is an input, output,
+    /// clock, internal state, etc
+    ///
+    /// If this returns None then the index is larger than the visible
+    /// state of the component
+    fn state_info(&self, index: usize) -> Option<PortInfo>;
+
+    /// Return state *data* for an index that matches that for
+    /// state_info, if the data provides SimValueObject
+    fn try_state_data(&self, _index: usize) -> Option<SimValueRef> {
+        None
+    }
+
+    /// Return mutable state *data* for an index that matches that for
+    /// state_info, if the data provides SimValueObject
+    fn try_state_data_mut(&mut self, _index: usize) -> Option<SimValueRefMut> {
+        None
+    }
 }

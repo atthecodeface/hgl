@@ -55,6 +55,31 @@ where
     fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
         self
     }
+    fn state_info(&self, index: usize) -> Option<PortInfo> {
+        STATE_INFO.get(index).copied()
+    }
+    fn try_state_data(&self, index: usize) -> Option<SimValueRef> {
+        match index {
+            1 => Some(SimValueRef::of(&self.inputs.read_enable)),
+            2 => Some(SimValueRef::of(&self.inputs.write_enable)),
+            3 => Some(SimValueRef::of(&self.inputs.address)),
+            4 => Some(SimValueRef::of(&self.inputs.write_data)),
+            5 => Some(SimValueRef::of(&self.outputs.read_valid)),
+            6 => Some(SimValueRef::of(&self.outputs.read_data)),
+            _ => None,
+        }
+    }
+    fn try_state_data_mut(&mut self, index: usize) -> Option<SimValueRefMut> {
+        match index {
+            1 => Some(SimValueRefMut::of(&mut self.inputs.read_enable)),
+            2 => Some(SimValueRefMut::of(&mut self.inputs.write_enable)),
+            3 => Some(SimValueRefMut::of(&mut self.inputs.address)),
+            4 => Some(SimValueRefMut::of(&mut self.inputs.write_data)),
+            5 => Some(SimValueRefMut::of(&mut self.outputs.read_valid)),
+            6 => Some(SimValueRefMut::of(&mut self.outputs.read_data)),
+            _ => None,
+        }
+    }
     fn clock(&mut self, _mask: u32) {
         let read = self.inputs.read_enable.is_true();
         let write = self.inputs.write_enable.is_true();
@@ -85,23 +110,6 @@ where
     type InputsMut<'a> = &'a mut Inputs<V, I>;
     type Inputs<'a> = &'a Inputs<V, I>;
     type Outputs<'a> = &'a Outputs<V>;
-    fn state_info(&self, index: usize) -> Option<PortInfo> {
-        STATE_INFO.get(index).copied()
-    }
-    fn try_state_data(&self, index: usize) -> Option<SimValueRef> {
-        if index == 0 {
-            Some(SimValueRef::of(&self.inputs.address))
-        } else {
-            None
-        }
-    }
-    fn try_state_data_mut(&mut self, index: usize) -> Option<SimValueRefMut> {
-        if index == 0 {
-            Some(SimValueRefMut::of(&mut self.inputs.address))
-        } else {
-            None
-        }
-    }
     fn inputs(&self) -> &Inputs<V, I> {
         &self.inputs
     }
