@@ -208,7 +208,7 @@ impl Instance {
                 if let Ok(s) = self.simulatable.try_read() {
                     fmt.write_str("=")?;
                     if let Some(x) = s.try_state_data(p.state_index()) {
-                        x.value().fmt_with(fmt, fmt::FULL)?;
+                        x.sim_value().fmt_with(fmt, fmt::FULL)?;
                     }
                 }
             }

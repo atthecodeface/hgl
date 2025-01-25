@@ -1,5 +1,5 @@
 //a Imports
-use crate::traits::SimValueObject;
+use crate::traits::{SimValue, SimValueObject};
 
 //a SimValueRef
 //tp SimValueRef
@@ -12,8 +12,11 @@ impl<'a> SimValueRef<'a> {
     pub fn of(value: &'a dyn SimValueObject) -> Self {
         Self { value }
     }
-    pub fn value(&self) -> &dyn SimValueObject {
+    pub fn sim_value(&self) -> &dyn SimValueObject {
         self.value
+    }
+    pub fn value<V: SimValue>(&self) -> Option<V> {
+        self.value.as_any().downcast_ref::<V>().copied()
     }
     pub fn as_any(&self) -> &dyn std::any::Any {
         self.value.as_any()
@@ -59,11 +62,14 @@ impl<'a> SimValueRefMut<'a> {
         size.copy_from_slice(data);
         true
     }
-    pub fn value(&self) -> &dyn SimValueObject {
+    pub fn sim_value(&self) -> &dyn SimValueObject {
         self.value
     }
     pub fn as_any(&self) -> &dyn std::any::Any {
         self.value.as_any()
+    }
+    pub fn value<V: SimValue>(&self) -> Option<V> {
+        self.value.as_any().downcast_ref::<V>().copied()
     }
     // pub fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
     // self.value.as_any()

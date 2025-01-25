@@ -66,7 +66,7 @@ fn sim_memory() -> Result<(), String> {
     x += x;
     let port_data_address = mem.try_state_data(address_index).unwrap();
     assert_eq!(
-        port_data_address.value().try_as_u8s().unwrap(),
+        port_data_address.sim_value().try_as_u8s().unwrap(),
         [3, 0, 0, 0, 0, 0, 0, 0]
     );
     let mut port_data_address = mem.try_state_data_mut(address_index).unwrap();
@@ -75,7 +75,7 @@ fn sim_memory() -> Result<(), String> {
         "Should correctly set data"
     );
     assert_eq!(
-        port_data_address.value().try_as_u8s().unwrap(),
+        port_data_address.sim_value().try_as_u8s().unwrap(),
         [6, 0, 0, 0, 0, 0, 0, 0]
     );
 
