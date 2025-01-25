@@ -336,7 +336,14 @@ where
 }
 
 //ip SimValue for Bv
-impl<const NB: usize> SimValue for Bv<NB> where BvN<{ NB }>: IsBv {}
+impl<const NB: usize> SimValue for Bv<NB>
+where
+    BvN<{ NB }>: IsBv,
+{
+    fn bit_width(&self) -> usize {
+        NB
+    }
+}
 
 //ip SimBv for Bv
 impl<const NB: usize> SimBv for Bv<NB>

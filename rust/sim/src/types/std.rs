@@ -2,17 +2,22 @@
 use crate::{SimBit, SimBv, SimValue};
 
 //a Trait impls for bool
-impl SimValue for bool {}
-impl SimBit for bool {
-    fn randomize<F: FnMut() -> u64>(f: &mut F) -> bool {
-        f() & 1 == 1
+impl SimValue for bool {
+    fn bit_width(&self) -> usize {
+        1
     }
 }
+
+impl SimBit for bool {}
 
 //a Macro for trait impl SimValue
 macro_rules! impl_sim_value {
     ($t:ty, $nb:expr) => {
-        impl SimValue for std::num::Wrapping<$t> {}
+        impl SimValue for std::num::Wrapping<$t> {
+            fn bit_width(&self) -> usize {
+                std::mem::size_of::<Self>() * 8
+            }
+        }
     };
 }
 

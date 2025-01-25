@@ -12,6 +12,9 @@ use crate::utils;
 /// This is an object-safe trait
 pub trait SimValueObject: std::any::Any + std::fmt::Debug {
     fn as_any(&self) -> &dyn std::any::Any;
+    fn bit_width(&self) -> usize {
+        0
+    }
 
     //ap try_as_u8s
     /// Try to return the data contents as a slice of u8; this should
@@ -30,21 +33,43 @@ pub trait SimValueObject: std::any::Any + std::fmt::Debug {
     fn try_as_u8s_mut(&mut self) -> Option<&mut [u8]> {
         None
     }
+
+    //mp might_equal
+    /// Compare with what should be another SimValueObject
+    ///
+    /// Return true only if this type is Copy, other is the same type,
+    /// and the bit-wise contents comparison of the data is equal
+    fn might_equal(&self, _other: &dyn std::any::Any) -> bool {
+        false
+    }
 }
 
-//it SimValueObject for T where Copy + 'static
+//it SimValueObject for T where SimValue
 impl<T> SimValueObject for T
 where
-    T: std::any::Any + std::fmt::Debug + Copy + 'static,
+    T: SimValue,
 {
     fn as_any(&self) -> &dyn std::any::Any {
         self
+    }
+    fn bit_width(&self) -> usize {
+        <Self as SimValue>::bit_width(self)
     }
     fn try_as_u8s(&self) -> Option<&[u8]> {
         Some(unsafe { utils::as_u8s(self) })
     }
     fn try_as_u8s_mut(&mut self) -> Option<&mut [u8]> {
         Some(unsafe { utils::as_u8s_mut(self) })
+    }
+    fn might_equal(&self, other: &dyn std::any::Any) -> bool {
+        let Some(other) = other.downcast_ref::<Self>() else {
+            return false;
+        };
+        let Some(od) = other.try_as_u8s() else {
+            return false;
+        };
+        let sd = unsafe { utils::as_u8s(self) };
+        sd == od
     }
 }
 
@@ -67,6 +92,7 @@ pub trait SimValue:
     + serde::Serialize
     + SimValueObject
 {
+    fn bit_width(&self) -> usize;
 }
 
 //tt SimArray

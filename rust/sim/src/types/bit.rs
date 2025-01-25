@@ -172,7 +172,11 @@ where
 }
 
 //ip SimValue for Bit
-impl SimValue for Bit {}
+impl SimValue for Bit {
+    fn bit_width(&self) -> usize {
+        1
+    }
+}
 
 //ip SimBit for Bit
 impl SimBit for Bit {}
