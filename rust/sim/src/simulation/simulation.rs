@@ -155,6 +155,11 @@ impl Simulation {
         self.control.borrow_mut().names.add_name(name)
     }
 
+    //mp find_name
+    pub fn find_name(&self, name: &str) -> Option<Name> {
+        self.control.borrow().names.find_name(name)
+    }
+
     //ap iter_clocks
     /// Iterate through the clocks
     pub fn iter_clocks(&self) -> impl std::iter::Iterator<Item = &Clock> {
@@ -177,6 +182,11 @@ impl Simulation {
     /// Get a mutable reference to a component instance given its handle
     pub fn inst_mut<C: Component>(&self, handle: InstanceHandle) -> RefMutInstance<C> {
         self.instances[handle].borrow_mut().unwrap()
+    }
+    //ap instance
+    /// Get the Instance
+    pub fn instance(&self, handle: InstanceHandle) -> &Instance {
+        &self.instances[handle]
     }
 }
 

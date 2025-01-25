@@ -1,5 +1,5 @@
 //a Imports
-use hgl_sim::prelude::*;
+use hgl_sim::prelude::sim::*;
 use rand::RngCore;
 
 //a Register and CPU
@@ -22,7 +22,10 @@ where
 {
     fn default() -> Self {
         let regs = [D::default(); NR];
-        Self { regs, op_mask:None }
+        Self {
+            regs,
+            op_mask: None,
+        }
     }
 }
 
@@ -31,7 +34,7 @@ where
     D: SimBv,
 {
     //ci new
-    fn new(bound_to_bits:bool) -> Self {
+    fn new(bound_to_bits: bool) -> Self {
         let mut regs = [D::default(); NR];
         regs[0].set_u64(0);
         regs[1].set_u64(1);
@@ -45,7 +48,7 @@ where
             if NB == 128 {
                 op_mask = Some(regs[2]);
             } else {
-                op_mask = Some((regs[1] << NB)-regs[1]);
+                op_mask = Some((regs[1] << NB) - regs[1]);
             }
             for i in 0..NR {
                 regs[i] &= op_mask.unwrap();
@@ -149,7 +152,7 @@ impl OpCode {
     }
 
     //mi perform
-    fn perform<D: SimBv>(&self, rs1: &D, rs2: &D, mask:&Option<D>) -> D {
+    fn perform<D: SimBv>(&self, rs1: &D, rs2: &D, mask: &Option<D>) -> D {
         use AluOp::*;
         let r = match self.op {
             Add => *rs1 + *rs2,
@@ -189,7 +192,8 @@ impl Program {
 }
 
 fn test_cpu_with_u128<const NB: usize>() -> Result<(), String>
-where BvN<NB>: IsBv
+where
+    BvN<NB>: IsBv,
 {
     const NR: usize = 256;
     const NF: usize = 4;
@@ -201,7 +205,7 @@ where BvN<NB>: IsBv
         cpu_bv.randomize_reg(i + NR / 2, &mut || rng.next_u64());
     }
     for i in 0..NR {
-        cpu_u128.regs[i].as_u8s_mut()[0..(NB+7)/8].copy_from_slice(cpu_bv.regs[i].as_u8s());
+        cpu_u128.regs[i].as_u8s_mut()[0..(NB + 7) / 8].copy_from_slice(cpu_bv.regs[i].as_u8s());
     }
 
     let mut p = Program::new();
@@ -216,7 +220,10 @@ where BvN<NB>: IsBv
         let e = cpu_u128.regs[i].as_u8s();
         let v = cpu_bv.regs[i].as_u8s();
         for j in 0..v.len() {
-            assert_eq!(e[j],v[j], "Mismatch in byte {j} of reg {i}, left is cpu_u128");
+            assert_eq!(
+                e[j], v[j],
+                "Mismatch in byte {j} of reg {i}, left is cpu_u128"
+            );
         }
     }
     Ok(())

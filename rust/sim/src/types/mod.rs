@@ -9,9 +9,14 @@ mod sim_value_ref;
 mod std;
 mod u8_ops;
 
-pub const SIM_FMT_AS_HEX: usize = 1;
-pub const SIM_FMT_AS_BIN: usize = 2;
-pub const SIM_FMT_HDR: usize = 4;
+pub mod fmt {
+    pub const MAX_STRING_LENGTH: usize = 256;
+
+    pub const AS_HEX: usize = 1;
+    pub const AS_BIN: usize = 2;
+    pub const HDR: usize = 4;
+    pub const FULL: usize = AS_BIN | HDR | AS_HEX;
+}
 
 pub use bit::Bit;
 pub use bit_range::{BitRange, BitRangeMut};

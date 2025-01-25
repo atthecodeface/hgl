@@ -4,21 +4,21 @@ use hgl_sim::prelude::sim::*;
 fn format() -> Result<(), String> {
     for i in 0..128 {
         assert_eq!(
-            &SimFormatValue::value_string(&Bv::<7>::of_u64(i), SIM_FMT_AS_BIN),
+            &SimFormatValue::value_string(&Bv::<7>::of_u64(i), fmt::AS_BIN),
             &format!("{:07b}", i)
         );
         assert_eq!(
-            &SimFormatValue::value_string(&Bv::<7>::of_u64(i), SIM_FMT_AS_HEX | SIM_FMT_AS_BIN),
+            &SimFormatValue::value_string(&Bv::<7>::of_u64(i), fmt::AS_HEX | fmt::AS_BIN),
             &format!("{:02x}", i)
         );
         assert_eq!(
-            &SimFormatValue::value_string(&Bv::<7>::of_u64(i), SIM_FMT_AS_BIN | SIM_FMT_HDR),
+            &SimFormatValue::value_string(&Bv::<7>::of_u64(i), fmt::AS_BIN | fmt::HDR),
             &format!("7b{:07b}", i)
         );
         assert_eq!(
             &SimFormatValue::value_string(
                 &Bv::<7>::of_u64(i),
-                SIM_FMT_AS_HEX | SIM_FMT_AS_BIN | SIM_FMT_HDR
+                fmt::AS_HEX | fmt::AS_BIN | fmt::HDR
             ),
             &format!("7h{:02x}", i)
         );

@@ -180,6 +180,10 @@ impl Names {
         self.insert_pool(s)
     }
 
+    pub fn find_name<S: AsRef<str>>(&self, s: S) -> Option<Name> {
+        self.get_pool(s.as_ref())
+    }
+
     pub fn fmt_name(
         &self,
         fmt: &mut std::fmt::Formatter,

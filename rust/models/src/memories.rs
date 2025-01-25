@@ -2,14 +2,14 @@ use hgl_sim::prelude::component::*;
 
 //a STATE_INFO, Inputs, Outputs
 //ci STATE_INFO
-const STATE_INFO: &[PortInfo] = &[
-    PortInfo::clk("clk", 0),
-    PortInfo::input("read_enable", 1),
-    PortInfo::input("write_enable", 2),
-    PortInfo::input("address", 3),
-    PortInfo::input("write_data", 4),
-    PortInfo::output("read_valid", 0),
-    PortInfo::output("read_data", 1),
+const STATE_INFO: &[SimStateInfo] = &[
+    SimStateInfo::clk("clk", 0),
+    SimStateInfo::input("read_enable", 1),
+    SimStateInfo::input("write_enable", 2),
+    SimStateInfo::input("address", 3),
+    SimStateInfo::input("write_data", 4),
+    SimStateInfo::output("read_valid", 0),
+    SimStateInfo::output("read_data", 1),
 ];
 #[derive(Debug, Default)]
 pub struct Inputs<V, I>
@@ -55,11 +55,11 @@ where
     fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
         self
     }
-    fn state_info(&self, index: usize) -> Option<PortInfo> {
-        STATE_INFO.get(index).copied()
+    fn state_info(&self, index: SimStateIndex) -> Option<SimStateInfo> {
+        STATE_INFO.get(index.as_usize()).copied()
     }
-    fn try_state_data(&self, index: usize) -> Option<SimValueRef> {
-        match index {
+    fn try_state_data(&self, index: SimStateIndex) -> Option<SimValueRef> {
+        match index.as_usize() {
             1 => Some(SimValueRef::of(&self.inputs.read_enable)),
             2 => Some(SimValueRef::of(&self.inputs.write_enable)),
             3 => Some(SimValueRef::of(&self.inputs.address)),
@@ -69,8 +69,8 @@ where
             _ => None,
         }
     }
-    fn try_state_data_mut(&mut self, index: usize) -> Option<SimValueRefMut> {
-        match index {
+    fn try_state_data_mut(&mut self, index: SimStateIndex) -> Option<SimValueRefMut> {
+        match index.as_usize() {
             1 => Some(SimValueRefMut::of(&mut self.inputs.read_enable)),
             2 => Some(SimValueRefMut::of(&mut self.inputs.write_enable)),
             3 => Some(SimValueRefMut::of(&mut self.inputs.address)),

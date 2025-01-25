@@ -1,4 +1,4 @@
-use hgl_sim::Simulation;
+use hgl_sim::prelude::sim::*;
 
 #[test]
 fn sim_clocks() -> Result<(), String> {

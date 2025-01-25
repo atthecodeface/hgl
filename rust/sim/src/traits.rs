@@ -1,11 +1,6 @@
 //a Imports
-use crate::types::U8Ops;
-use crate::types::{BitRange, BitRangeMut};
-use crate::types::{SIM_FMT_AS_BIN, SIM_FMT_AS_HEX, SIM_FMT_HDR};
+use crate::types::{fmt, BitRange, BitRangeMut, U8Ops};
 use crate::utils;
-
-//a Constants
-const MAX_STRING_LENGTH: usize = 256;
 
 //a Traits
 //tt SimValueObject
@@ -97,12 +92,12 @@ where
         sd == od
     }
     fn fmt_with(&self, fmt: &mut std::fmt::Formatter, style: usize) -> Result<(), std::fmt::Error> {
-        let mut ascii_store = [b'0'; MAX_STRING_LENGTH];
+        let mut ascii_store = [b'0'; fmt::MAX_STRING_LENGTH];
         let mut ascii = ascii_store.as_mut_slice();
         let mut hdr_char = 'b';
-        if (style & SIM_FMT_AS_HEX) != 0 && (<Self as SimValue>::FMT_HEX) {
+        if (style & fmt::AS_HEX) != 0 && (<Self as SimValue>::FMT_HEX) {
             assert!(
-                (<Self as SimValue>::BIT_WIDTH + 3) / 4 < MAX_STRING_LENGTH,
+                (<Self as SimValue>::BIT_WIDTH + 3) / 4 < fmt::MAX_STRING_LENGTH,
                 "Need to restrict length of hex string"
             );
             hdr_char = 'h';
@@ -110,9 +105,9 @@ where
             if !(<Self as SimValue>::fmt_hex(self, ascii)) {
                 utils::fmt_hex(self, ascii);
             }
-        } else if (style & SIM_FMT_AS_BIN) != 0 && (<Self as SimValue>::FMT_BIN) {
+        } else if (style & fmt::AS_BIN) != 0 && (<Self as SimValue>::FMT_BIN) {
             assert!(
-                <Self as SimValue>::BIT_WIDTH < MAX_STRING_LENGTH,
+                <Self as SimValue>::BIT_WIDTH < fmt::MAX_STRING_LENGTH,
                 "Need to restrict length of hex string"
             );
             ascii = &mut ascii[0..<Self as SimValue>::BIT_WIDTH];
@@ -121,7 +116,7 @@ where
             }
         }
         let ascii = unsafe { std::str::from_utf8_unchecked(ascii) };
-        if (style & SIM_FMT_HDR) == 0 {
+        if (style & fmt::HDR) == 0 {
             fmt.write_str(ascii)
         } else {
             write!(

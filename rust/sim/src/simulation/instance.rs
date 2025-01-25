@@ -5,8 +5,8 @@ use std::marker::PhantomData;
 use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use crate::simulation::{Component, Simulatable};
-use crate::simulation::{Name, Names, Port, SimNsName, Simulation};
-use crate::types::{SIM_FMT_AS_BIN, SIM_FMT_AS_HEX, SIM_FMT_HDR};
+use crate::simulation::{Name, Names, SimNsName, SimStateIndex, Simulation, StateDesc};
+use crate::types::fmt;
 
 //a RefMutInstance
 //tp RefMutInstance
@@ -108,7 +108,7 @@ pub struct Instance {
     /// be simulated by different threads at the same time
     simulatable: RwLock<Box<dyn Simulatable + 'static>>,
 
-    state_map: RefCell<HashMap<Name, Port>>,
+    state_map: RefCell<HashMap<Name, StateDesc>>,
 }
 
 //ip Debug for Instance
@@ -173,14 +173,23 @@ impl Instance {
         let mut component = self.borrow_mut::<C>().unwrap();
         component.configure(sim, handle, config_fn())?;
         for i in 0..usize::MAX {
-            let Some(port_info) = component.state_info(i) else {
+            let sdi = i.into();
+            let Some(port_info) = component.state_info(sdi) else {
                 break;
             };
             let name = sim.add_name(port_info.name());
-            let port = Port::new(i, &port_info, None);
+            let port = StateDesc::new(sdi, &port_info, None);
             self.state_map.borrow_mut().insert(name, port);
         }
         Ok(())
+    }
+
+    //mp state_index
+    pub fn state_index(&self, name: Name) -> Option<SimStateIndex> {
+        self.state_map
+            .borrow()
+            .get(&name)
+            .map(|sd| sd.state_index())
     }
 
     //mp fmt_full
@@ -199,8 +208,7 @@ impl Instance {
                 if let Ok(s) = self.simulatable.try_read() {
                     fmt.write_str("=")?;
                     if let Some(x) = s.try_state_data(p.state_index()) {
-                        x.value()
-                            .fmt_with(fmt, SIM_FMT_AS_HEX | SIM_FMT_AS_BIN | SIM_FMT_HDR)?;
+                        x.value().fmt_with(fmt, fmt::FULL)?;
                     }
                 }
             }
@@ -211,6 +219,7 @@ impl Instance {
 }
 
 //a InstanceArray
+//tp InstanceArray
 #[derive(Default)]
 pub struct InstanceArray {
     instances: Vec<Instance>,

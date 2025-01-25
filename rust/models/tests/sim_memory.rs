@@ -1,6 +1,5 @@
 use hgl_models::Memory;
 use hgl_sim::prelude::sim::*;
-use hgl_sim::Simulation;
 
 type Mem32x31 = Memory<Bv<31>, Bv<5>>;
 #[test]
@@ -18,6 +17,13 @@ fn sim_memory() -> Result<(), String> {
         let _mema = sim.inst::<Mem32x31>(mem1);
         let _mem2a = sim.inst::<Mem32x31>(mem2);
     }
+    let address_name = sim
+        .find_name("address")
+        .expect("Memory must have declared the 'address' state");
+    let address_index = sim
+        .instance(mem1)
+        .state_index(address_name)
+        .expect("Memory must have declared the 'address' state");
     {
         let mut mem = sim.inst_mut::<Mem32x31>(mem1);
         let inputs = mem.inputs_mut();
@@ -58,12 +64,12 @@ fn sim_memory() -> Result<(), String> {
 
     let mut x = mem.inputs_mut().address;
     x += x;
-    let port_data_address = mem.try_state_data(0).unwrap();
+    let port_data_address = mem.try_state_data(address_index).unwrap();
     assert_eq!(
         port_data_address.value().try_as_u8s().unwrap(),
         [3, 0, 0, 0, 0, 0, 0, 0]
     );
-    let mut port_data_address = mem.try_state_data_mut(0).unwrap();
+    let mut port_data_address = mem.try_state_data_mut(address_index).unwrap();
     assert!(
         port_data_address.set_u8s(x.try_as_u8s().unwrap()),
         "Should correctly set data"
@@ -73,8 +79,9 @@ fn sim_memory() -> Result<(), String> {
         [6, 0, 0, 0, 0, 0, 0, 0]
     );
 
+    // If we do not drop then dbg of sim will not show the values
+    drop(mem);
     dbg!(&sim);
-    // assert!(false);
 
     Ok(())
 }

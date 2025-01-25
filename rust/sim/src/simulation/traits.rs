@@ -1,5 +1,5 @@
 //a Imports
-use crate::simulation::{PortInfo, SimNsName, SimReset};
+use crate::simulation::{SimNsName, SimReset, SimStateIndex, SimStateInfo};
 use crate::types::{SimValueRef, SimValueRefMut};
 
 //a Simulation traits
@@ -182,25 +182,26 @@ pub trait Simulatable: std::any::Any {
     /// it is increased on each call, starting at 0 for the first
     /// after a clock edge)
     fn propagate(&mut self, _stage: usize) {}
+
     //ap state_info
     /// Return some of the state information
     ///
-    /// The PortInfo indicates whether the state is an input, output,
+    /// The SimStateInfo indicates whether the state is an input, output,
     /// clock, internal state, etc
     ///
     /// If this returns None then the index is larger than the visible
     /// state of the component
-    fn state_info(&self, index: usize) -> Option<PortInfo>;
+    fn state_info(&self, index: SimStateIndex) -> Option<SimStateInfo>;
 
     /// Return state *data* for an index that matches that for
     /// state_info, if the data provides SimValueObject
-    fn try_state_data(&self, _index: usize) -> Option<SimValueRef> {
+    fn try_state_data(&self, _index: SimStateIndex) -> Option<SimValueRef> {
         None
     }
 
     /// Return mutable state *data* for an index that matches that for
     /// state_info, if the data provides SimValueObject
-    fn try_state_data_mut(&mut self, _index: usize) -> Option<SimValueRefMut> {
+    fn try_state_data_mut(&mut self, _index: SimStateIndex) -> Option<SimValueRefMut> {
         None
     }
 }

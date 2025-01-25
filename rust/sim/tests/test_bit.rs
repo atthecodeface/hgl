@@ -3,36 +3,36 @@ use hgl_sim::prelude::sim::*;
 #[test]
 fn format() -> Result<(), String> {
     assert_eq!(
-        &SimFormatValue::value_string(&Bit::F, SIM_FMT_AS_HEX | SIM_FMT_AS_BIN),
+        &SimFormatValue::value_string(&Bit::F, fmt::AS_HEX | fmt::AS_BIN),
         "0"
     );
     assert_eq!(
-        &SimFormatValue::value_string(&Bit::T, SIM_FMT_AS_HEX | SIM_FMT_AS_BIN),
+        &SimFormatValue::value_string(&Bit::T, fmt::AS_HEX | fmt::AS_BIN),
         "1"
     );
     assert_eq!(
-        &SimFormatValue::value_string(&Bit::F, SIM_FMT_AS_HEX | SIM_FMT_AS_BIN | SIM_FMT_HDR),
+        &SimFormatValue::value_string(&Bit::F, fmt::AS_HEX | fmt::AS_BIN | fmt::HDR),
         "1b0"
     );
     assert_eq!(
-        &SimFormatValue::value_string(&Bit::T, SIM_FMT_AS_HEX | SIM_FMT_AS_BIN | SIM_FMT_HDR),
+        &SimFormatValue::value_string(&Bit::T, fmt::AS_HEX | fmt::AS_BIN | fmt::HDR),
         "1b1"
     );
 
     assert_eq!(
-        &SimFormatValue::value_string(&false, SIM_FMT_AS_HEX | SIM_FMT_AS_BIN),
+        &SimFormatValue::value_string(&false, fmt::AS_HEX | fmt::AS_BIN),
         "0"
     );
     assert_eq!(
-        &SimFormatValue::value_string(&true, SIM_FMT_AS_HEX | SIM_FMT_AS_BIN),
+        &SimFormatValue::value_string(&true, fmt::AS_HEX | fmt::AS_BIN),
         "1"
     );
     assert_eq!(
-        &SimFormatValue::value_string(&false, SIM_FMT_AS_HEX | SIM_FMT_AS_BIN | SIM_FMT_HDR),
+        &SimFormatValue::value_string(&false, fmt::AS_HEX | fmt::AS_BIN | fmt::HDR),
         "1b0"
     );
     assert_eq!(
-        &SimFormatValue::value_string(&true, SIM_FMT_AS_HEX | SIM_FMT_AS_BIN | SIM_FMT_HDR),
+        &SimFormatValue::value_string(&true, fmt::AS_HEX | fmt::AS_BIN | fmt::HDR),
         "1b1"
     );
     Ok(())

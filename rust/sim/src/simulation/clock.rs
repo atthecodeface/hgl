@@ -1,5 +1,5 @@
 //a Imports
-use crate::SimNsName;
+use crate::simulation::SimNsName;
 
 //a Clock
 //tp Clock
