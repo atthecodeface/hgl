@@ -23,7 +23,7 @@ use crate::index_vec::Idx;
 /// The type T is a slice [D]
 #[derive(Copy, Clone)]
 #[repr(transparent)]
-pub struct IndexedSlice<I, T>
+pub struct IndexedSlice<I, T, const M: bool>
 where
     I: Idx,
     T: ?Sized,
@@ -37,7 +37,7 @@ where
     slice: T,
 }
 
-impl<I, T> std::fmt::Debug for IndexedSlice<I, T>
+impl<I, T, const M: bool> std::fmt::Debug for IndexedSlice<I, T, M>
 where
     I: Idx,
     T: std::fmt::Debug + ?Sized,
@@ -47,7 +47,37 @@ where
     }
 }
 
-impl<I, T> IndexedSlice<I, [T]>
+impl<I, T> IndexedSlice<I, [T], true>
+where
+    I: Idx,
+    T: Sized,
+{
+    //cp from_slice_mut
+    /// Construct a new IndexedSlice by type-wrapping an existing
+    /// slice.
+    #[inline(always)]
+    pub fn from_slice_mut(slice: &mut [T]) -> &mut Self {
+        unsafe { &mut *(slice as *mut [T] as *mut Self) }
+    }
+
+    //cp new_mut
+    /// Construct a new IndexedSlice by type-wrapping an existing
+    /// slice, returning a reference that is effectively borrowed from
+    /// the argument
+    #[inline(always)]
+    pub fn new_mut<S: AsMut<[T]>>(slice: &mut S) -> &mut Self {
+        Self::from_slice_mut(slice.as_mut())
+    }
+    //ap get_mut
+    /// Get a mutable reference to the item at the provided index, or
+    /// None for out of bounds.
+    #[inline]
+    pub fn get_mut(&mut self, index: I) -> Option<&mut T> {
+        self.slice.get_mut(index.index())
+    }
+}
+
+impl<I, T, const M: bool> IndexedSlice<I, [T], M>
 where
     I: Idx,
     T: Sized,

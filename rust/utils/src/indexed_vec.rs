@@ -1,12 +1,12 @@
 //a Imports
 use std::marker::PhantomData;
 
-use crate::index_vec::Idx;
+use crate::index_vec::{Idx, IndexedSlice};
 
 //a IndexedVec
 //tp IndexedVec
 /// An [IndexedVec] is a Vec of items with an index
-pub struct IndexedVec<I, T>
+pub struct IndexedVec<I, T, const M: bool>
 where
     I: Idx,
 {
@@ -14,8 +14,8 @@ where
     _phantom: PhantomData<fn(&I)>,
 }
 
-//ip Default for IndexedVec<I, T>
-impl<I, T> std::default::Default for IndexedVec<I, T>
+//ip Default for IndexedVec<I, T, M>
+impl<I, T, const M: bool> std::default::Default for IndexedVec<I, T, M>
 where
     I: Idx,
 {
@@ -29,7 +29,7 @@ where
 }
 
 //ip Index<Handle> for IndexedVec
-impl<I, T> std::ops::Index<I> for IndexedVec<I, T>
+impl<I, T, const M: bool> std::ops::Index<I> for IndexedVec<I, T, M>
 where
     I: Idx,
 {
@@ -39,25 +39,44 @@ where
     }
 }
 
-//ip IntoIter for IndexedVec
-impl<'a, I, T> std::iter::IntoIterator for &'a IndexedVec<I, T>
+//ip IndexedVec (mutable and immutable)
+impl<I, T, const M: bool> IndexedVec<I, T, M>
 where
     I: Idx,
 {
-    type Item = &'a T;
-    type IntoIter = std::slice::Iter<'a, T>;
-
-    // Required method
-    fn into_iter(self) -> std::slice::Iter<'a, T> {
-        self.array.iter()
+    //ap next_index
+    /// Gives the next index that will be assigned when `push` is
+    /// called.
+    #[inline]
+    pub fn next_index(&self) -> I {
+        I::from_usize(self.array.len())
     }
-}
 
-//ip IndexedVec
-impl<I, T> IndexedVec<I, T>
-where
-    I: Idx,
-{
+    //ap as_slice
+    /// Return an [IndexSlice] for the contents
+    #[inline(always)]
+    pub fn as_slice(&self) -> &IndexedSlice<I, [T], M> {
+        IndexedSlice::new(&self.array)
+    }
+
+    //mp push
+    /// Push a new item onto the vector, and return it's index.
+    #[inline]
+    pub fn push(&mut self, d: T) -> I {
+        let index = self.next_index();
+        self.array.push(d);
+        index
+    }
+
+    //ap get
+    /// Get a ref to the item at the provided index, or None for out of bounds.
+    #[inline]
+    pub fn get(&self, index: I) -> Option<&T> {
+        self.as_slice().get(index)
+    }
+
+    // Could add... pop, insert,
+
     //ap is_empty
     pub fn is_empty(&self) -> bool {
         self.array.is_empty()
@@ -92,4 +111,72 @@ where
             *handle
     }
         */
+}
+
+//ip IndexedVec mutable
+impl<I, T> IndexedVec<I, T, true>
+where
+    I: Idx,
+{
+    //ap as_mut_slice
+    /// Return an [IndexSlice] for the contents
+    #[inline(always)]
+    pub fn as_mut_slice(&mut self) -> &mut IndexedSlice<I, [T], true> {
+        IndexedSlice::new_mut(&mut self.array)
+    }
+
+    //ap get_mut
+    /// Get a ref to the item at the provided index, or None for out of bounds.
+    #[inline]
+    pub fn get_mut(&mut self, index: I) -> Option<&mut T> {
+        self.as_mut_slice().get_mut(index)
+    }
+}
+
+//ip IntoIter for IndexedVec
+impl<'a, I, T, const M: bool> std::iter::IntoIterator for &'a IndexedVec<I, T, M>
+where
+    I: Idx,
+{
+    type Item = &'a T;
+    type IntoIter = std::slice::Iter<'a, T>;
+
+    // Required method
+    fn into_iter(self) -> std::slice::Iter<'a, T> {
+        self.array.iter()
+    }
+}
+
+//ip AsRef<[T]> for IndexedVec
+impl<I, T, const M: bool> AsRef<[T]> for IndexedVec<I, T, M>
+where
+    I: Idx,
+{
+    #[inline]
+    fn as_ref(&self) -> &[T] {
+        &self.array
+    }
+}
+
+//ip AsRef<IndexedSlice<I, [T]>> for IndexedVec
+impl<I, T, const M: bool> AsRef<IndexedSlice<I, [T], M>> for IndexedVec<I, T, M>
+where
+    I: Idx,
+{
+    #[inline]
+    fn as_ref(&self) -> &IndexedSlice<I, [T], M> {
+        IndexedSlice::new(&self.array)
+    }
+}
+
+//ip Deref for IndexedVec
+impl<I, T, const M: bool> std::ops::Deref for IndexedVec<I, T, M>
+where
+    I: Idx,
+{
+    type Target = IndexedSlice<I, [T], M>;
+    #[inline]
+    fn deref(&self) -> &IndexedSlice<I, [T], M> {
+        IndexedSlice::new(&self.array)
+    }
 }

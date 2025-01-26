@@ -5,10 +5,12 @@ pub mod refs;
 mod index;
 mod indexed_slice;
 mod indexed_vec;
+// mod indexed_pool;
 mod vec_with_index;
 
 pub mod index_vec {
     pub use super::index::Idx;
+    // pub use super::indexed_pool::IndexedPool;
     pub use super::indexed_slice::IndexedSlice;
     pub use super::indexed_vec::IndexedVec;
     pub use super::vec_with_index::{IndexKey, VecWithIndex};
