@@ -58,11 +58,33 @@ fn sim_counter() -> Result<(), String> {
     }
 
     dbg!(&sim);
+    let mut timer = hgl_utils::timer::Timer::default();
+    timer.entry();
     for _ in 0..10_000 {
         sim.fire_next_edges();
     }
+    *sim.inst_mut::<Counter<T>>(cntr).inputs.decrement = false.into();
+    *sim.inst_mut::<Counter<T>>(cntr).inputs.increment = true.into();
+    for _ in 0..1_000 {
+        sim.fire_next_edges();
+    }
+    timer.exit();
+    *sim.inst_mut::<Counter<T>>(cntr).inputs.increment = false.into();
+
+    eprintln!("Timer ticks per cycle {}", timer.value() / 11_000);
+
     dbg!(&sim);
+    let exp: u64 = (1 << 31) + 32 - 9000;
+    assert_eq!(
+        sim.inst_mut::<Counter<T>>(cntr)
+            .outputs
+            .data
+            .try_as_u64()
+            .unwrap(),
+        exp
+    );
 
     assert!(false);
+
     Ok(())
 }

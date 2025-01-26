@@ -1,6 +1,7 @@
 pub mod bit_ops;
 pub mod fmt;
 pub mod refs;
+pub mod timer;
 #[macro_use]
 mod index;
 mod indexed_slice;
