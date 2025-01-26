@@ -22,11 +22,11 @@ where
 {
     #[allow(dead_code)]
     clk: (),
-    reset_n: Bit,
-    load: Bit,
-    increment: Bit,
-    decrement: Bit,
-    data: V,
+    pub reset_n: Bit,
+    pub load: Bit,
+    pub increment: Bit,
+    pub decrement: Bit,
+    pub data: V,
 }
 
 //tp State
@@ -35,7 +35,7 @@ pub struct State<V>
 where
     V: SimBv,
 {
-    data: V,
+    pub data: V,
 }
 
 //tp Outputs
@@ -44,7 +44,7 @@ pub struct Outputs<V>
 where
     V: SimBv,
 {
-    data: V,
+    pub data: V,
 }
 
 //a Counter
@@ -54,11 +54,11 @@ pub struct Counter<V>
 where
     V: SimBv,
 {
-    reset_value: Option<V>,
-    inputs: Inputs<V>,
-    state: State<V>,
-    next_state: State<V>,
-    outputs: Outputs<V>,
+    pub reset_value: Option<V>,
+    pub inputs: Inputs<V>,
+    pub state: State<V>,
+    pub next_state: State<V>,
+    pub outputs: Outputs<V>,
 }
 
 //ip Counter
@@ -126,6 +126,7 @@ where
                 }
             }
             self.state = self.next_state;
+            self.generate_outputs();
         }
     }
 

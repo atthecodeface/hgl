@@ -188,6 +188,25 @@ impl Instance {
         }
     }
 
+    //ap borrow_sim_mut
+    /// Borrow the instance mutably as a Simulatable
+    pub fn borrow_sim_mut(&self) -> Option<RwLockWriteGuard<'_, Box<dyn Simulatable>>> {
+        match self.simulatable.try_write() {
+            Ok(l) => Some(l),
+            Err(_) => None,
+        }
+    }
+
+    //ap borrow_sim
+    /// Borrow the instance immutably as a Simulatable
+    pub fn borrow_sim(&self) -> Option<RwLockReadGuard<'_, Box<dyn Simulatable>>> {
+        let l = self.simulatable.try_read();
+        match l {
+            Ok(l) => Some(l),
+            Err(_) => None,
+        }
+    }
+
     //mp configure
     pub fn configure<C: Component, F: FnOnce() -> <C as Component>::Config>(
         &self,

@@ -5,8 +5,15 @@ use hgl_sim::prelude::sim::*;
 fn sim_counter() -> Result<(), String> {
     type T = Bv<31>;
     let mut sim = Simulation::new();
-    sim.add_clock("clk", 0, 1, 0)?;
+    let clk = sim.add_clock("clk", 0, 1, 0)?;
     let cntr = sim.instantiate::<Counter<T>, _, _>("counter", || Some(T::of_u64(32)))?;
+
+    let cntr_clk = sim
+        .instance(cntr)
+        .state_index(sim.find_name("clk").unwrap())
+        .unwrap();
+
+    sim.connect_clock(clk, cntr, 0); // cntr_clk);
 
     sim.prepare_simulation();
 
@@ -44,5 +51,18 @@ fn sim_counter() -> Result<(), String> {
         );
     }
 
+    {
+        let mut inst = sim.inst_mut::<Counter<T>>(cntr);
+        *inst.inputs.reset_n = true.into();
+        *inst.inputs.decrement = true.into();
+    }
+
+    dbg!(&sim);
+    for _ in 0..10_000 {
+        sim.fire_next_edges();
+    }
+    dbg!(&sim);
+
+    assert!(false);
     Ok(())
 }

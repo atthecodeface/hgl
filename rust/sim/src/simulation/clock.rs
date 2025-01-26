@@ -259,7 +259,7 @@ impl ClockArray {
 
     //mp derive_instance_edges_of_masks
     pub fn derive_instance_edges_of_masks(&mut self, ie: &(usize, usize)) {
-        if !self.instance_edges.contains_key(&ie) {
+        if self.instance_edges.contains_key(&ie) {
             return;
         }
         let mut blah: HashMap<InstanceHandle, SimEdgeMask> = HashMap::new();

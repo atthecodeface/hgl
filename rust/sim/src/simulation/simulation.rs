@@ -49,7 +49,7 @@ impl SimulationControl {
         self.clocks.into_iter()
     }
 
-    pub fn do_stuff(
+    pub fn register_input_use(
         &mut self,
         instance: InstanceHandle,
         input: usize,
@@ -152,6 +152,18 @@ impl Simulation {
     //mp next_edges
     pub fn next_edges(&self) -> (usize, usize) {
         self.control.borrow_mut().clocks.next_edges()
+    }
+
+    //mp fire_next_edges
+    pub fn fire_next_edges(&self) {
+        let ie = self.control.borrow_mut().clocks.next_edges();
+        let c = self.control.borrow();
+        for (inst, edge_mask) in c.clocks.instance_edges(&ie).iter() {
+            self.instances[*inst]
+                .borrow_sim_mut()
+                .unwrap()
+                .clock(*edge_mask);
+        }
     }
 
     //mp time
@@ -272,6 +284,13 @@ impl Simulation {
     pub fn instance(&self, handle: InstanceHandle) -> &Instance {
         &self.instances[handle]
     }
+
+    //mp connect_clock
+    pub fn connect_clock(&self, clock: ClockIndex, instance: InstanceHandle, input: usize) {
+        self.control
+            .borrow_mut()
+            .connect_clock(clock, instance, input);
+    }
 }
 
 //ip SimRegister for Simulation
@@ -286,7 +305,7 @@ impl SimRegister for Simulation {
         negedge: bool,
     ) {
         let mut control = self.control.borrow_mut();
-        control.do_stuff(handle, input, posedge, negedge);
+        control.register_input_use(handle, input, posedge, negedge);
     }
     fn comb_path(
         &self,
