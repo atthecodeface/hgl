@@ -110,8 +110,8 @@ where
     /// Clock the component, with mask indicating which edges have occurred
     ///
     /// This should use the values in its Inputs, and update its outputs.
-    fn clock(&mut self, mask: u32) {
-        if (mask & 1) != 0 {
+    fn clock(&mut self, mask: SimEdgeMask) {
+        if mask.is_posedge(0) {
             self.next_state = self.state;
             if self.inputs.reset_n.is_false() {
                 self.next_state.data = self.reset_value.unwrap_or_default();

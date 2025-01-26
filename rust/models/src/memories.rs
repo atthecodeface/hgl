@@ -80,7 +80,7 @@ where
             _ => None,
         }
     }
-    fn clock(&mut self, _mask: u32) {
+    fn clock(&mut self, _mask: SimEdgeMask) {
         let read = self.inputs.read_enable.is_true();
         let write = self.inputs.write_enable.is_true();
         self.outputs.read_valid = read.into();

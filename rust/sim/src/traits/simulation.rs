@@ -1,5 +1,5 @@
 //a Imports
-use crate::simulation::{SimNsName, SimReset, SimStateIndex, SimStateInfo};
+use crate::simulation::{SimEdgeMask, SimNsName, SimReset, SimStateIndex, SimStateInfo};
 use crate::values::{SimValueRef, SimValueRefMut};
 
 //a Simulation traits
@@ -167,7 +167,7 @@ pub trait Simulatable: std::any::Any {
     /// Clock the component, with mask indicating which edges have occurred
     ///
     /// This should use the values in its Inputs, and update its outputs.
-    fn clock(&mut self, _mask: u32) {}
+    fn clock(&mut self, _mask: SimEdgeMask) {}
 
     //mp propagate
     /// Propagate inputs through combinational paths and to all submodules

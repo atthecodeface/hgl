@@ -1,27 +1,85 @@
 //a Imports
 use std::cell::RefCell;
+use std::collections::HashMap;
 
 use hgl_utils::index_vec::VecWithIndex;
 
 use crate::simulation::{
-    Clock, ClockArray, ClockIndex, Instance, InstanceHandle, Name, Names, NamespaceStack,
-    NsNameFmt, RefInstance, RefMutInstance, SimNsName,
+    Clock, ClockArray, ClockIndex, Instance, InstanceHandle, Name, NameFmt, Names, NamespaceStack,
+    NsNameFmt, RefInstance, RefMutInstance, SimEdgeMask, SimNsName,
 };
 use crate::traits::{Component, ComponentBuilder, SimHandle, SimRegister};
 
 //a SimulationControl
+//tp EdgeUse
+#[derive(Default, Debug)]
+pub struct EdgeUse {
+    instance: InstanceHandle,
+    input: usize,
+    posedge: bool,
+    negedge: bool,
+}
+
+//tp SimulationControl
 #[derive(Default)]
 struct SimulationControl {
     /// Names and namespaces in the simulation
     names: Names,
     /// Current namespace stack
     namespace_stack: NamespaceStack,
+    /// Use of edges by instances
+    edge_uses: HashMap<InstanceHandle, Vec<EdgeUse>>,
+    /// Clocks used in the simulation
+    clocks: ClockArray,
 }
 
+//ip SimulationControl
 impl SimulationControl {
     //ap ns_name_fmt
     pub fn ns_name_fmt(&self, name: SimNsName) -> NsNameFmt {
-        NsNameFmt(&self.names, name)
+        self.names.ns_name_fmt(name)
+    }
+    //ap name_fmt
+    pub fn name_fmt(&self, name: Name) -> NameFmt {
+        self.names.name_fmt(name)
+    }
+    //ap iter_clocks
+    /// Iterate through the clocks
+    pub fn iter_clocks(&self) -> impl std::iter::Iterator<Item = &Clock> {
+        self.clocks.into_iter()
+    }
+
+    pub fn do_stuff(
+        &mut self,
+        instance: InstanceHandle,
+        input: usize,
+        posedge: bool,
+        negedge: bool,
+    ) {
+        self.edge_uses
+            .entry(instance)
+            .or_insert_with(|| vec![])
+            .push(EdgeUse {
+                instance,
+                input,
+                posedge,
+                negedge,
+            });
+    }
+    pub fn connect_clock(&mut self, clock: &Clock, instance: InstanceHandle, input: usize) {
+        let Some(edge_uses) = self.edge_uses.get(&instance) else {
+            return;
+        };
+        for e in edge_uses.iter() {
+            if e.input == input {
+                if e.posedge {
+                    // clock posedge used by instance and when its posedge fires must set SimEdgeMask.posedge(input) for the instance
+                }
+                if e.negedge {
+                    // clock negedge used by instance and when its negedge fires must set SimEdgeMask.negedge(input) for the instance
+                }
+            }
+        }
     }
 }
 
@@ -31,9 +89,6 @@ impl SimHandle for InstanceHandle {}
 //a Simulation
 //tp Simulation
 pub struct Simulation {
-    /// Clocks used in the simulation
-    clocks: ClockArray,
-
     /// Control of the simulation that can change during simulation itself
     control: RefCell<SimulationControl>,
 
@@ -46,7 +101,7 @@ pub struct Simulation {
 impl std::fmt::Debug for Simulation {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         write!(fmt, "Simulation[clocks:[")?;
-        for (i, clk) in self.iter_clocks().enumerate() {
+        for (i, clk) in self.control.borrow().iter_clocks().enumerate() {
             if i > 0 {
                 fmt.write_str(", ")?;
             }
@@ -70,40 +125,36 @@ impl std::fmt::Debug for Simulation {
     }
 }
 
-//ip Simulation
+//ip Default for Simulation
 impl Default for Simulation {
     fn default() -> Self {
         Self::new()
     }
 }
 
+//ip Simulation
 impl Simulation {
     //cp new
     /// Create a new simulation
     pub fn new() -> Self {
-        let clocks = ClockArray::default();
         let control = RefCell::new(SimulationControl::default());
         let instances = VecWithIndex::default();
-        Self {
-            clocks,
-            control,
-            instances,
-        }
+        Self { control, instances }
     }
 
     //mp prepare_simulation
-    pub fn prepare_simulation(&mut self) {
-        self.clocks.derive_schedule();
+    pub fn prepare_simulation(&self) {
+        self.control.borrow_mut().clocks.derive_schedule();
     }
 
     //mp next_edges
-    pub fn next_edges(&mut self) -> (usize, usize) {
-        self.clocks.next_edges()
+    pub fn next_edges(&self) -> (usize, usize) {
+        self.control.borrow_mut().clocks.next_edges()
     }
 
     //mp time
     pub fn time(&self) -> usize {
-        self.clocks.time()
+        self.control.borrow().clocks.time()
     }
 
     //mp add_clock
@@ -125,8 +176,14 @@ impl Simulation {
         let full_name = control
             .names
             .insert_full_name(namespace, name)
-            .map_err(|_e| format!("Duplicate name {name} when trying to create clock"))?;
-        self.clocks
+            .map_err(|ns_name| {
+                format!(
+                    "Duplicate name {} when trying to create clock",
+                    control.ns_name_fmt(ns_name)
+                )
+            })?;
+        control
+            .clocks
             .add_clock(full_name, delay, period, negedge_offset)
     }
 
@@ -159,7 +216,12 @@ impl Simulation {
         let full_name = control
             .names
             .insert_full_name(namespace, name)
-            .map_err(|_e| format!("Duplicate name {name} when trying to instantiate module"))?;
+            .map_err(|ns_name| {
+                format!(
+                    "Duplicate name {} when trying to instantiate module",
+                    control.ns_name_fmt(ns_name)
+                )
+            })?;
         drop(control);
         let component = CB::instantiate(self, full_name);
         let instance = Instance::new(full_name, component);
@@ -184,12 +246,6 @@ impl Simulation {
     //mp find_name
     pub fn find_name(&self, name: &str) -> Option<Name> {
         self.control.borrow().names.find_name(name)
-    }
-
-    //ap iter_clocks
-    /// Iterate through the clocks
-    pub fn iter_clocks(&self) -> impl std::iter::Iterator<Item = &Clock> {
-        self.clocks.into_iter()
     }
 
     //ap iter_instances
@@ -222,11 +278,13 @@ impl SimRegister for Simulation {
 
     fn register_input_edge(
         &self,
-        _handle: Self::Handle,
-        _input: usize,
-        _posedge: bool,
-        _negedge: bool,
+        handle: Self::Handle,
+        input: usize,
+        posedge: bool,
+        negedge: bool,
     ) {
+        let mut control = self.control.borrow_mut();
+        control.do_stuff(handle, input, posedge, negedge);
     }
     fn comb_path(
         &self,

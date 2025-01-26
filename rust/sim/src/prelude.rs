@@ -10,6 +10,6 @@ pub mod sim {
 pub mod component {
     pub use super::sim::*;
     pub use crate::simulation::SimNsName;
-    pub use crate::simulation::{SimReset, SimStateIndex, SimStateInfo};
+    pub use crate::simulation::{SimEdgeMask, SimReset, SimStateIndex, SimStateInfo};
     pub use crate::traits::{ComponentBuilder, SimHandle, SimRegister};
 }

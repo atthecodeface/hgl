@@ -62,10 +62,10 @@ impl Clock {
     }
 }
 
-//a ClockPos
-//tp ClockPos
+//a ClockPosn
+//tp ClockPosn
 #[derive(Default, Debug)]
-pub struct ClockPos {
+pub struct ClockPosn {
     /// Time of the next potential edge
     ///
     /// If this is before the initial delay of the clock
@@ -78,8 +78,8 @@ pub struct ClockPos {
     next_is_posedge: bool,
 }
 
-//ip ClockPos
-impl ClockPos {
+//ip ClockPosn
+impl ClockPosn {
     //cp new
     fn new(clock: &Clock) -> Self {
         let next_edge = clock.delay % clock.period;
@@ -132,7 +132,7 @@ impl ClockPos {
 pub struct Schedule {
     time: usize,
     next_time: usize,
-    clock_pos: Vec<ClockPos>,
+    clock_pos: Vec<ClockPosn>,
 }
 
 //ip Schedule
@@ -142,7 +142,7 @@ impl Schedule {
     fn new(clocks: &[Clock]) -> Self {
         let time = 0;
         let next_time = 0;
-        let clock_pos: Vec<ClockPos> = clocks.iter().map(ClockPos::new).collect();
+        let clock_pos: Vec<ClockPosn> = clocks.iter().map(ClockPosn::new).collect();
         Self {
             time,
             next_time,
@@ -204,6 +204,7 @@ pub struct ClockArray {
 
 //ip ClockArray
 impl ClockArray {
+    //mp add_clock
     #[track_caller]
     pub fn add_clock(
         &mut self,
@@ -217,15 +218,21 @@ impl ClockArray {
             .insert(name, |_| clock)
             .map_err(|_| format!("Clock already exists"))
     }
+
+    //mp find_clock
     pub fn find_clock(&self, name: SimNsName) -> Option<ClockIndex> {
         self.clocks.find_key(&name)
     }
+
+    //mp derive_schedule
     pub fn derive_schedule(&mut self) {
         if self.clocks.is_empty() {
             return;
         }
         self.schedule = Some(Schedule::new(self.clocks.as_ref()));
     }
+
+    //mp next_edges
     #[track_caller]
     pub fn next_edges(&mut self) -> (usize, usize) {
         let Some(schedule) = &mut self.schedule else {
@@ -233,6 +240,8 @@ impl ClockArray {
         };
         schedule.next_edges(&self.clocks.as_ref())
     }
+
+    //ap time
     #[track_caller]
     pub fn time(&self) -> usize {
         let Some(schedule) = &self.schedule else {
@@ -240,6 +249,8 @@ impl ClockArray {
         };
         schedule.time
     }
+
+    //ap into_iter
     pub fn into_iter(&self) -> impl std::iter::Iterator<Item = &Clock> {
         self.clocks.into_iter()
     }

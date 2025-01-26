@@ -1,4 +1,5 @@
 use hgl_models::Memory;
+use hgl_sim::prelude::component::SimEdgeMask;
 use hgl_sim::prelude::sim::*;
 
 type Mem32x31 = Memory<Bv<31>, Bv<5>>;
@@ -35,7 +36,8 @@ fn sim_memory() -> Result<(), String> {
     // mem : RefMutInstance<Mem32x32>
     let mut mem = sim.inst_mut::<Mem32x31>(mem1);
     mem.inputs_mut().read_enable &= false;
-    mem.clock(1);
+    let clk = SimEdgeMask::default().add_posedge(0);
+    mem.clock(clk);
     assert!(
         mem.outputs().read_valid.is_false(),
         "Read data should not be valid if no read took place"
@@ -44,14 +46,14 @@ fn sim_memory() -> Result<(), String> {
     mem.inputs_mut().write_enable |= true;
     mem.inputs_mut().address.set_u64(3);
     mem.inputs_mut().write_data.set_u64(724);
-    mem.clock(1);
+    mem.clock(clk);
     assert!(
         mem.outputs().read_valid.is_false(),
         "Read data should not be valid if no read took place"
     );
     mem.inputs_mut().read_enable |= true;
     mem.inputs_mut().write_enable &= false;
-    mem.clock(1);
+    mem.clock(clk);
     assert!(
         mem.outputs().read_valid.is_true(),
         "Read data should be valid if read took place"

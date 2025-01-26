@@ -64,6 +64,33 @@ impl From<(SimNsName, Name)> for NsName {
     }
 }
 
+//a Name formatters
+//tp NameFmt
+/// A formatter for full namespace names
+///
+///
+pub struct NameFmt<'a>(&'a Names, Name);
+
+//ip Display for NameFmt
+impl<'a> std::fmt::Display for NameFmt<'a> {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        self.0.fmt_name(fmt, self.1)
+    }
+}
+
+//tp NsNameFmt
+/// A formatter for full namespace names
+///
+///
+pub struct NsNameFmt<'a>(&'a Names, SimNsName);
+
+//ip Display for NsNameFmt
+impl<'a> std::fmt::Display for NsNameFmt<'a> {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        self.0.fmt_ns_name(fmt, self.1)
+    }
+}
+
 //a Names
 //tp Names
 pub struct Names {
@@ -162,14 +189,15 @@ impl Names {
         }
         self.fmt_name(fmt, ns_name.name())
     }
-}
 
-//a Name formatter
-pub struct NsNameFmt<'a>(pub &'a Names, pub SimNsName);
+    //mp ns_name_fmt
+    pub fn ns_name_fmt(&self, name: SimNsName) -> NsNameFmt {
+        NsNameFmt(self, name)
+    }
 
-impl<'a> std::fmt::Display for NsNameFmt<'a> {
-    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
-        self.0.fmt_ns_name(fmt, self.1)
+    //mp name_fmt
+    pub fn name_fmt(&self, name: Name) -> NameFmt {
+        NameFmt(self, name)
     }
 }
 
