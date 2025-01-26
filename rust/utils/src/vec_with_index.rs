@@ -1,7 +1,7 @@
 //a Imports
 use std::collections::HashMap;
 
-use crate::index_vec::Idx;
+use crate::index_vec::{Idx, IndexedVec};
 
 //a IndexKey
 //tt IndexKey
@@ -20,7 +20,7 @@ where
     K: IndexKey,
     H: Idx,
 {
-    array: Vec<D>,
+    array: IndexedVec<H, D, false>,
     index: HashMap<K, H>,
 }
 
@@ -31,7 +31,7 @@ where
     H: Idx,
 {
     fn default() -> Self {
-        let array = vec![];
+        let array = IndexedVec::default();
         let index = HashMap::default();
         Self { array, index }
     }
@@ -45,7 +45,7 @@ where
 {
     type Output = D;
     fn index(&self, n: H) -> &D {
-        &self.array[n.index()]
+        &self.array[n]
     }
 }
 
@@ -60,7 +60,7 @@ where
 
     // Required method
     fn into_iter(self) -> std::slice::Iter<'a, D> {
-        self.array.iter()
+        self.array.into_iter()
     }
 }
 
@@ -70,27 +70,9 @@ where
     K: IndexKey,
     H: Idx,
 {
-    //ap is_empty
-    pub fn is_empty(&self) -> bool {
-        self.array.is_empty()
-    }
-
-    //ap array
-    pub fn array(&self) -> &[D] {
-        &self.array
-    }
-
-    //mp first
+    //mp find_key
     /// get
-    ///
-    /// FIXME
-    pub fn first(&self) -> Option<&D> {
-        Some(&self.array[0]) // H::from_usize(0)])
-    }
-
-    //mp get
-    /// get
-    pub fn get(&self, key: &K) -> Option<H> {
+    pub fn find_key(&self, key: &K) -> Option<H> {
         self.index.get(key).copied()
     }
 
@@ -110,5 +92,29 @@ where
             return self.add(name, data);
         };
         *handle
+    }
+}
+//ip Deref for IndexedVec
+impl<'a, K, H, D> std::ops::Deref for VecWithIndex<K, H, D>
+where
+    K: IndexKey,
+    H: Idx,
+{
+    type Target = IndexedVec<H, D, false>;
+    #[inline]
+    fn deref(&self) -> &IndexedVec<H, D, false> {
+        &self.array
+    }
+}
+
+//ip AsRef<[D]> for IndexedVec
+impl<'a, K, H, D> AsRef<[D]> for VecWithIndex<K, H, D>
+where
+    K: IndexKey,
+    H: Idx,
+{
+    #[inline]
+    fn as_ref(&self) -> &[D] {
+        self.array.as_ref()
     }
 }

@@ -216,20 +216,20 @@ impl ClockArray {
         self.clocks.add(name, clock)
     }
     pub fn find_clock(&self, name: SimNsName) -> Option<ClockIndex> {
-        self.clocks.get(&name)
+        self.clocks.find_key(&name)
     }
     pub fn derive_schedule(&mut self) {
         if self.clocks.is_empty() {
             return;
         }
-        self.schedule = Some(Schedule::new(&self.clocks.array()));
+        self.schedule = Some(Schedule::new(self.clocks.as_ref()));
     }
     #[track_caller]
     pub fn next_edges(&mut self) -> (usize, usize) {
         let Some(schedule) = &mut self.schedule else {
             panic!("Schedule has not been set up - no call of derive_schedule yet");
         };
-        schedule.next_edges(&self.clocks.array())
+        schedule.next_edges(&self.clocks.as_ref())
     }
     #[track_caller]
     pub fn time(&self) -> usize {

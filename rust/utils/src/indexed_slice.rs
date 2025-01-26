@@ -37,6 +37,7 @@ where
     slice: T,
 }
 
+//ip Debug for IndexedSlice<I, T, M>
 impl<I, T, const M: bool> std::fmt::Debug for IndexedSlice<I, T, M>
 where
     I: Idx,
@@ -47,6 +48,7 @@ where
     }
 }
 
+//ip IndexedSlice (mutable)
 impl<I, T> IndexedSlice<I, [T], true>
 where
     I: Idx,
@@ -77,6 +79,7 @@ where
     }
 }
 
+//ip IndexedSlice
 impl<I, T, const M: bool> IndexedSlice<I, [T], M>
 where
     I: Idx,
@@ -193,6 +196,7 @@ where
     //zz All done
 }
 
+//ip PartialEq for IndexedSlice
 /*
 impl<I: Idx, A, B> PartialEq<IndexSlice<I, [B]>> for IndexSlice<I, [A]>
 where

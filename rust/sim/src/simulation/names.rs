@@ -112,7 +112,7 @@ impl Names {
     }
 
     fn get_full_name(&self, f: NsName) -> Option<SimNsName> {
-        self.namespace_names.get(&f)
+        self.namespace_names.find_key(&f)
     }
 
     pub fn insert_full_name(
@@ -165,7 +165,7 @@ impl Names {
         //
         // No
         let temp_str: &'static str = unsafe { std::mem::transmute::<_, _>(s) };
-        self.names.get(&temp_str)
+        self.names.find_key(&temp_str)
     }
 
     //mp fmt_name

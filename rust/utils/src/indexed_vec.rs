@@ -75,8 +75,6 @@ where
         self.as_slice().get(index)
     }
 
-    // Could add... pop, insert,
-
     //ap is_empty
     pub fn is_empty(&self) -> bool {
         self.array.is_empty()
@@ -131,6 +129,7 @@ where
     pub fn get_mut(&mut self, index: I) -> Option<&mut T> {
         self.as_mut_slice().get_mut(index)
     }
+    // Could add... pop, insert,
 }
 
 //ip IntoIter for IndexedVec
@@ -178,5 +177,27 @@ where
     #[inline]
     fn deref(&self) -> &IndexedSlice<I, [T], M> {
         IndexedSlice::new(&self.array)
+    }
+}
+
+//ip AsMut<IndexedSlice<I, [T]>> for IndexedVec
+impl<I, T> AsMut<IndexedSlice<I, [T], true>> for IndexedVec<I, T, true>
+where
+    I: Idx,
+{
+    #[inline]
+    fn as_mut(&mut self) -> &mut IndexedSlice<I, [T], true> {
+        IndexedSlice::new_mut(&mut self.array)
+    }
+}
+
+//ip DerefMut for IndexedVec
+impl<I, T> std::ops::DerefMut for IndexedVec<I, T, true>
+where
+    I: Idx,
+{
+    #[inline]
+    fn deref_mut(&mut self) -> &mut IndexedSlice<I, [T], true> {
+        IndexedSlice::new_mut(&mut self.array)
     }
 }
