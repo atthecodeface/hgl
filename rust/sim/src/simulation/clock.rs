@@ -211,9 +211,11 @@ impl ClockArray {
         delay: usize,
         period: usize,
         negedge_offset: usize,
-    ) -> ClockIndex {
+    ) -> Result<ClockIndex, String> {
         let clock = Clock::new(name, delay, period, negedge_offset);
-        self.clocks.add(name, clock)
+        self.clocks
+            .insert(name, |_| clock)
+            .map_err(|_| format!("Clock already exists"))
     }
     pub fn find_clock(&self, name: SimNsName) -> Option<ClockIndex> {
         self.clocks.find_key(&name)

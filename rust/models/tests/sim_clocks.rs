@@ -24,6 +24,13 @@ fn sim_bad_period() {
 }
 
 #[test]
+fn sim_duplicate_clock() {
+    let mut sim = Simulation::new();
+    assert!(sim.add_clock("clk", 0, 10, 0).is_ok());
+    assert!(sim.add_clock("clk", 0, 10, 0).is_err());
+}
+
+#[test]
 #[should_panic]
 fn sim_bad_negedge() {
     let mut sim = Simulation::new();

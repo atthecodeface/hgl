@@ -2,10 +2,10 @@
 use std::pin::Pin;
 
 use hgl_utils::index_vec::make_index;
-use hgl_utils::index_vec::VecWithIndex;
+use hgl_utils::index_vec::{StringIndex, StringsWithIndex, VecWithIndex};
 
 //a Name
-make_index!(Name, usize);
+pub type Name = StringIndex;
 
 //a SimNsName
 //tp SimNsName
@@ -67,21 +67,20 @@ impl From<(SimNsName, Name)> for NsName {
 //a Names
 //tp Names
 pub struct Names {
-    names: VecWithIndex<&'static str, Name, Pin<String>>,
+    names: StringsWithIndex,
     namespace_names: VecWithIndex<NsName, SimNsName, NsName>,
 }
 
 //ip Default for Names
 impl std::default::Default for Names {
     fn default() -> Self {
-        let names = VecWithIndex::default();
+        let mut names = StringsWithIndex::default();
+        let _ = names.find_or_add("");
         let namespace_names = VecWithIndex::default();
-        let mut s = Self {
-            namespace_names,
+        Self {
             names,
-        };
-        s.add_string("");
-        s
+            namespace_names,
+        }
     }
 }
 
@@ -89,7 +88,7 @@ impl std::default::Default for Names {
 impl std::ops::Index<Name> for Names {
     type Output = str;
     fn index(&self, p: Name) -> &str {
-        Pin::into_inner(self.names[p].as_ref())
+        &self.names[p]
     }
 }
 
@@ -107,8 +106,10 @@ impl Names {
         self.namespace_names.first().copied().unwrap()
     }
 
-    fn add_full_name(&mut self, f: NsName) -> SimNsName {
-        self.namespace_names.add(f, f)
+    fn add_full_name(&mut self, f: NsName) -> Result<SimNsName, String> {
+        self.namespace_names
+            .insert(f, |_| f)
+            .map_err(|_| format!("Duplicate name in namespace"))
     }
 
     fn get_full_name(&self, f: NsName) -> Option<SimNsName> {
@@ -120,52 +121,23 @@ impl Names {
         namespace: SimNsName,
         name: &str,
     ) -> Result<SimNsName, SimNsName> {
-        let name = self.find_or_add_to_pool(name);
+        let name = self.add_name(name);
         let full_name = (namespace, name).into();
         if let Some(p) = self.get_full_name(full_name) {
             Err(p)
         } else {
-            Ok(self.add_full_name(full_name))
-        }
-    }
-
-    //mi add_string
-    fn add_string<S: Into<String>>(&mut self, s: S) -> Name {
-        let s = s.into();
-        let pinned_string = Pin::new(s);
-        let pinned_str: &'static str =
-            unsafe { std::mem::transmute::<_, _>(pinned_string.as_ref()) };
-        self.names.add(pinned_str, pinned_string)
-    }
-
-    //mi find_or_add_to_pool
-    fn find_or_add_to_pool<S: Into<String> + AsRef<str>>(&mut self, s: S) -> Name {
-        if let Some(p) = self.find_name(s.as_ref()) {
-            p
-        } else {
-            self.add_string(s)
+            Ok(self.add_full_name(full_name).unwrap())
         }
     }
 
     //mp add_name
     pub fn add_name<S: Into<String> + AsRef<str>>(&mut self, s: S) -> Name {
-        self.find_or_add_to_pool(s)
+        self.names.find_or_add(s).1
     }
 
     //mp find_name
     pub fn find_name(&self, s: &str) -> Option<Name> {
-        // SAFETY:
-        //
-        // s is &'fn str - i.e. must be live for this function
-        //
-        // names.get() *borrows* &'static str, but it's use cannot
-        // outlive this function
-        //
-        // So names.get() when names has an &'static str is its key needs to have its lifetime extended
-        //
-        // No
-        let temp_str: &'static str = unsafe { std::mem::transmute::<_, _>(s) };
-        self.names.find_key(&temp_str)
+        self.names.find_string(s)
     }
 
     //mp fmt_name
@@ -174,7 +146,7 @@ impl Names {
         fmt: &mut std::fmt::Formatter,
         name: Name,
     ) -> Result<(), std::fmt::Error> {
-        fmt.write_str(&self[name])
+        self.names.fmt_string(fmt, name)
     }
 
     //mp fmt_ns_name
@@ -189,6 +161,15 @@ impl Names {
             fmt.write_str(".")?;
         }
         self.fmt_name(fmt, ns_name.name())
+    }
+}
+
+//a Name formatter
+pub struct NsNameFmt<'a>(pub &'a Names, pub SimNsName);
+
+impl<'a> std::fmt::Display for NsNameFmt<'a> {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        self.0.fmt_ns_name(fmt, self.1)
     }
 }
 

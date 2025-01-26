@@ -242,7 +242,3 @@ impl Instance {
         fmt.write_str("]")
     }
 }
-
-//a InstanceArray
-//tp InstanceArray
-pub type InstanceArray = VecWithIndex<SimNsName, InstanceHandle, Instance>;

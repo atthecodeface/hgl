@@ -1,9 +1,11 @@
 //a Imports
 use std::cell::RefCell;
 
+use hgl_utils::index_vec::VecWithIndex;
+
 use crate::simulation::{
-    Clock, ClockArray, ClockIndex, Instance, InstanceArray, InstanceHandle, Name, Names,
-    NamespaceStack, RefInstance, RefMutInstance, SimNsName,
+    Clock, ClockArray, ClockIndex, Instance, InstanceHandle, Name, Names, NamespaceStack,
+    NsNameFmt, RefInstance, RefMutInstance, SimNsName,
 };
 use crate::traits::{Component, ComponentBuilder, SimHandle, SimRegister};
 
@@ -14,6 +16,13 @@ struct SimulationControl {
     names: Names,
     /// Current namespace stack
     namespace_stack: NamespaceStack,
+}
+
+impl SimulationControl {
+    //ap ns_name_fmt
+    pub fn ns_name_fmt(&self, name: SimNsName) -> NsNameFmt {
+        NsNameFmt(&self.names, name)
+    }
 }
 
 //ip SimHandle for InstanceHandle
@@ -30,7 +39,7 @@ pub struct Simulation {
 
     /// Instances which can be individually executed by separate
     /// threads
-    instances: InstanceArray,
+    instances: VecWithIndex<SimNsName, InstanceHandle, Instance>,
 }
 
 //ip Debug for Simulation
@@ -74,7 +83,7 @@ impl Simulation {
     pub fn new() -> Self {
         let clocks = ClockArray::default();
         let control = RefCell::new(SimulationControl::default());
-        let instances = InstanceArray::default();
+        let instances = VecWithIndex::default();
         Self {
             clocks,
             control,
@@ -117,9 +126,8 @@ impl Simulation {
             .names
             .insert_full_name(namespace, name)
             .map_err(|_e| format!("Duplicate name {name} when trying to create clock"))?;
-        Ok(self
-            .clocks
-            .add_clock(full_name, delay, period, negedge_offset))
+        self.clocks
+            .add_clock(full_name, delay, period, negedge_offset)
     }
 
     //mp find_clock
@@ -155,7 +163,15 @@ impl Simulation {
         drop(control);
         let component = CB::instantiate(self, full_name);
         let instance = Instance::new(full_name, component);
-        let handle = self.instances.add(full_name, instance);
+        let handle = self
+            .instances
+            .insert(full_name, |_| instance)
+            .map_err(|_e| {
+                format!(
+                    "Instance with name {} already exists",
+                    self.control.borrow().ns_name_fmt(full_name)
+                )
+            })?;
         self.instances[handle].configure::<C, _>(self, handle, config_fn)?;
         Ok(handle)
     }
