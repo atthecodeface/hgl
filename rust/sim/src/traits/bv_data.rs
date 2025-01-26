@@ -1,6 +1,7 @@
 //a Imports
+use hgl_utils::bit_ops;
+
 use crate::data::U8Ops;
-use crate::utils;
 
 //a BvData trait
 //tt BvData
@@ -24,7 +25,7 @@ pub trait BvData:
     //mp cmp
     fn cmp<const NB: usize>(&self, other: &Self) -> std::cmp::Ordering {
         use std::cmp::Ordering::*;
-        let nb = utils::num_u8_of_bits(NB);
+        let nb = bit_ops::num_u8_of_bits(NB);
         let s = self.as_u8s::<NB>();
         let o = other.as_u8s::<NB>();
         for i in (0..nb).rev() {
@@ -44,7 +45,7 @@ pub trait BvData:
     fn bit_or<const NB: usize>(&mut self, other: &Self) {
         let s = self.as_u8s_mut::<NB>();
         let o = other.as_u8s::<NB>();
-        for (i, m) in utils::iter_u8_of_bits(NB) {
+        for (i, m) in bit_ops::iter_u8_of_bits(NB) {
             s[i] |= o[i] & m;
         }
     }
@@ -53,7 +54,7 @@ pub trait BvData:
     fn bit_and<const NB: usize>(&mut self, other: &Self) {
         let s = self.as_u8s_mut::<NB>();
         let o = other.as_u8s::<NB>();
-        for (i, _m) in utils::iter_u8_of_bits(NB) {
+        for (i, _m) in bit_ops::iter_u8_of_bits(NB) {
             s[i] &= o[i];
         }
     }
@@ -62,7 +63,7 @@ pub trait BvData:
     fn bit_xor<const NB: usize>(&mut self, other: &Self) {
         let s = self.as_u8s_mut::<NB>();
         let o = other.as_u8s::<NB>();
-        for (i, m) in utils::iter_u8_of_bits(NB) {
+        for (i, m) in bit_ops::iter_u8_of_bits(NB) {
             s[i] ^= o[i] & m;
         }
     }
@@ -70,7 +71,7 @@ pub trait BvData:
     //mp bit_not
     fn bit_not<const NB: usize>(&mut self) {
         let s = self.as_u8s_mut::<NB>();
-        for (i, m) in utils::iter_u8_of_bits(NB) {
+        for (i, m) in bit_ops::iter_u8_of_bits(NB) {
             s[i] = (!s[i]) & m;
         }
     }
@@ -80,7 +81,7 @@ pub trait BvData:
         let s = self.as_u8s_mut::<NB>();
         let o = other.as_u8s::<NB>();
         let mut c = 0;
-        for (i, m) in utils::iter_u8_of_bits(NB) {
+        for (i, m) in bit_ops::iter_u8_of_bits(NB) {
             let v = s[i] as u16 + o[i] as u16 + c;
             s[i] = (v as u8) & m;
             c = if v >= 256 { 1 } else { 0 };
@@ -92,7 +93,7 @@ pub trait BvData:
         let s = self.as_u8s_mut::<NB>();
         let o = other.as_u8s::<NB>();
         let mut c = 1;
-        for (i, m) in utils::iter_u8_of_bits(NB) {
+        for (i, m) in bit_ops::iter_u8_of_bits(NB) {
             let v = s[i] as u16 + (!o[i]) as u16 + c;
             s[i] = (v as u8) & m;
             c = if v >= 256 { 1 } else { 0 };

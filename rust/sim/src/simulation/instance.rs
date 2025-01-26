@@ -4,11 +4,16 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
-use crate::make_handle;
+use hgl_utils::index_vec::make_index;
+use hgl_utils::index_vec::VecWithIndex;
+
 use crate::simulation::{Name, Names, SimNsName, SimStateIndex, Simulation, StateDesc};
 use crate::traits::{Component, SimBit, SimBv, SimValue, Simulatable};
-use crate::utils::Array;
 use crate::values::fmt;
+
+//a InstanceHandle
+//tp InstanceHandle
+make_index!(InstanceHandle, usize);
 
 //a RefMutInstance
 //tp RefMutInstance
@@ -111,10 +116,6 @@ impl<C: Component + 'static> RefInstance<'_, C> {
             .and_then(|v| v.try_as_bool::<V>())
     }
 }
-
-//a InstanceHandle
-//tp InstanceHandle
-make_handle!(InstanceHandle);
 
 //a Instance
 //tp Instance
@@ -244,4 +245,4 @@ impl Instance {
 
 //a InstanceArray
 //tp InstanceArray
-pub type InstanceArray = Array<SimNsName, InstanceHandle, Instance>;
+pub type InstanceArray = VecWithIndex<SimNsName, InstanceHandle, Instance>;

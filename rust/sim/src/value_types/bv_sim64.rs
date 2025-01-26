@@ -1,6 +1,7 @@
 //a Imports
+use hgl_utils::bit_ops;
+
 use crate::traits::{BvData, IsBv};
-use crate::utils;
 use crate::value_types::BvN;
 
 //a BvData for Wrapping<u64>
@@ -31,10 +32,10 @@ impl BvData for std::num::Wrapping<u64> {
         }
     }
     fn add_msk<const NB: usize>(&mut self, other: &Self) {
-        *self = (*self + *other) & utils::mask_wrapping_u64_zero_none(NB);
+        *self = (*self + *other) & bit_ops::mask_wrapping_u64_zero_none(NB);
     }
     fn sub_msk<const NB: usize>(&mut self, other: &Self) {
-        *self = (*self - *other) & utils::mask_wrapping_u64_zero_none(NB);
+        *self = (*self - *other) & bit_ops::mask_wrapping_u64_zero_none(NB);
     }
     fn bit_or<const NB: usize>(&mut self, other: &Self) {
         *self |= *other;

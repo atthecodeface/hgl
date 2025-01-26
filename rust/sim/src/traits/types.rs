@@ -1,6 +1,7 @@
 //a Imports
+use hgl_utils::{bit_ops, refs};
+
 use crate::data::{BitRange, BitRangeMut, U8Ops};
-use crate::utils;
 use crate::values::fmt;
 
 //a Traits
@@ -77,10 +78,10 @@ where
         <Self as SimValue>::get_subelement(self, n)
     }
     fn try_as_u8s(&self) -> Option<&[u8]> {
-        Some(unsafe { utils::as_u8s(self) })
+        Some(unsafe { refs::as_u8s(self) })
     }
     fn try_as_u8s_mut(&mut self) -> Option<&mut [u8]> {
-        Some(unsafe { utils::as_u8s_mut(self) })
+        Some(unsafe { refs::as_u8s_mut(self) })
     }
     fn might_equal(&self, other: &dyn std::any::Any) -> bool {
         let Some(other) = other.downcast_ref::<Self>() else {
@@ -89,7 +90,7 @@ where
         let Some(od) = other.try_as_u8s() else {
             return false;
         };
-        let sd = unsafe { utils::as_u8s(self) };
+        let sd = unsafe { refs::as_u8s(self) };
         sd == od
     }
     fn fmt_with(&self, fmt: &mut std::fmt::Formatter, style: usize) -> Result<(), std::fmt::Error> {
@@ -104,7 +105,7 @@ where
             hdr_char = 'h';
             ascii = &mut ascii[0..(<Self as SimValue>::BIT_WIDTH + 3) / 4];
             if !(<Self as SimValue>::fmt_hex(self, ascii)) {
-                utils::fmt_hex(self, ascii);
+                hgl_utils::fmt::fmt_hex(self, ascii);
             }
         } else if (style & fmt::AS_BIN) != 0 && (<Self as SimValue>::FMT_BIN) {
             assert!(
@@ -113,7 +114,7 @@ where
             );
             ascii = &mut ascii[0..<Self as SimValue>::BIT_WIDTH];
             if !(<Self as SimValue>::fmt_bin(self, ascii)) {
-                utils::fmt_bin(self, ascii);
+                hgl_utils::fmt::fmt_bin(self, ascii);
             }
         }
         let ascii = unsafe { std::str::from_utf8_unchecked(ascii) };
@@ -260,12 +261,12 @@ pub trait SimBv:
         let mut s = Self::default();
         let n = s.num_bits();
         if let Some(sd) = s.try_as_u64s_mut() {
-            for (i, m) in utils::iter_u64_of_bits(n) {
+            for (i, m) in bit_ops::iter_u64_of_bits(n) {
                 sd[i] = f() & m;
             }
         } else {
             let sd = s.as_u8s_mut();
-            for (i, m) in utils::iter_u8_of_bits(n) {
+            for (i, m) in bit_ops::iter_u8_of_bits(n) {
                 sd[i] = (f() as u8) & m;
             }
         }
@@ -286,7 +287,7 @@ pub trait SimBv:
     fn set_u64(&mut self, mut value: u64) {
         let n = self.num_bits();
         let sd = self.as_u8s_mut();
-        for (i, m) in utils::iter_u8_of_bits(n) {
+        for (i, m) in bit_ops::iter_u8_of_bits(n) {
             sd[i] = (value as u8) & m;
             value >>= 8;
         }

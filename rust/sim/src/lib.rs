@@ -4,5 +4,3 @@ pub(crate) mod simulation;
 pub(crate) mod traits;
 pub(crate) mod value_types;
 pub(crate) mod values;
-#[macro_use]
-pub(crate) mod utils;

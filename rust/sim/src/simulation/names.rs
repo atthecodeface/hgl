@@ -1,20 +1,17 @@
 //a Imports
-use std::collections::HashMap;
 use std::pin::Pin;
 
-use crate::make_handle;
-use crate::utils::Array;
+use hgl_utils::index_vec::make_index;
+use hgl_utils::index_vec::VecWithIndex;
 
 //a Name
-make_handle!(Name);
+make_index!(Name, usize);
 
 //a SimNsName
 //tp SimNsName
-make_handle!(SimNsName);
+make_index!(SimNsName, usize);
 
-impl crate::traits::Key for SimNsName {}
-
-//ip  SimNsName
+//ip SimNsName
 impl SimNsName {
     pub fn is_root(&self) -> bool {
         self.0 == 0
@@ -28,9 +25,6 @@ pub struct NsName {
     namespace: SimNsName,
     name: Name,
 }
-
-//ip Key for NsName
-impl crate::traits::Key for NsName {}
 
 //ip NsName
 impl NsName {
@@ -73,15 +67,15 @@ impl From<(SimNsName, Name)> for NsName {
 //a Names
 //tp Names
 pub struct Names {
-    names: Array<&'static str, Name, Pin<String>>,
-    namespace_names: Array<NsName, SimNsName, NsName>,
+    names: VecWithIndex<&'static str, Name, Pin<String>>,
+    namespace_names: VecWithIndex<NsName, SimNsName, NsName>,
 }
 
 //ip Default for Names
 impl std::default::Default for Names {
     fn default() -> Self {
-        let names = Array::default();
-        let namespace_names = Array::default();
+        let names = VecWithIndex::default();
+        let namespace_names = VecWithIndex::default();
         let mut s = Self {
             namespace_names,
             names,
@@ -110,7 +104,7 @@ impl std::ops::Index<SimNsName> for Names {
 //ip Names
 impl Names {
     pub fn root_namespace(&self) -> NsName {
-        self.namespace_names[0.into()]
+        self.namespace_names.first().copied().unwrap()
     }
 
     fn add_full_name(&mut self, f: NsName) -> SimNsName {

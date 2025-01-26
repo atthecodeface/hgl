@@ -1,11 +1,11 @@
 [workspace]
 resolver = "2"
 # These are directory names
-members = [ "sim", "models"]
+members = [ "utils", "sim", "models"]
 
 [workspace.package]
 edition = "2021"
-version = "0.1.0"
+version = "0.0.1"
 description = "Rust cycle simulation and Hgl tools"
 homepage = "https://github.com/atthecodeface/hgl"
 documentation = "https://docs.rs/hgl"
@@ -15,8 +15,9 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/atthecodeface/hgl"
 
 [workspace.dependencies]
-hgl_sim = { version = "0.1.0", path = "./sim" }
-hgl_models = { version = "0.1.0", path = "./models" }
+hgl_utils = { version = "0.0.1", path = "./utils" }
+hgl_sim = { version = "0.0.1", path = "./sim" }
+hgl_models = { version = "0.0.1", path = "./models" }
 
 [workspace.dependencies.rand]
 version = "0.8.5"

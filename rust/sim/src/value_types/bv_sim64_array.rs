@@ -1,6 +1,5 @@
 //a Imports
 use crate::traits::{BvData, IsBv};
-use crate::utils;
 use crate::value_types::BvN;
 
 //a BvData for arrays

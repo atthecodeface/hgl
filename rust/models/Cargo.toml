@@ -15,3 +15,6 @@ hgl_sim.workspace = true
 rand.workspace = true
 serde.workspace = true
 thiserror.workspace = true
+
+# Only for tests...
+hgl_utils.workspace = true

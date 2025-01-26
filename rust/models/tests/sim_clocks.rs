@@ -1,11 +1,12 @@
 use hgl_sim::prelude::sim::*;
+use hgl_utils::index_vec::Idx;
 
 #[test]
 fn sim_clocks() -> Result<(), String> {
     let mut sim = Simulation::new();
-    assert_eq!(sim.add_clock("clk21", 0, 21, 0)?, 0.into());
-    assert_eq!(sim.add_clock("clk5", 17, 5, 3)?, 1.into());
-    assert_eq!(sim.add_clock("clk14", 3, 14, 0)?, 2.into());
+    assert_eq!(sim.add_clock("clk21", 0, 21, 0)?.index(), 0);
+    assert_eq!(sim.add_clock("clk5", 17, 5, 3)?.index(), 1);
+    assert_eq!(sim.add_clock("clk14", 3, 14, 0)?.index(), 2);
     sim.prepare_simulation();
 
     for _ in 0..100 {
@@ -19,21 +20,21 @@ fn sim_clocks() -> Result<(), String> {
 #[should_panic]
 fn sim_bad_period() {
     let mut sim = Simulation::new();
-    assert_eq!(sim.add_clock("clk", 10, 0, 0).unwrap(), 0.into());
+    assert_eq!(sim.add_clock("clk", 10, 0, 0).unwrap().index(), 0);
 }
 
 #[test]
 #[should_panic]
 fn sim_bad_negedge() {
     let mut sim = Simulation::new();
-    assert_eq!(sim.add_clock("clk", 10, 5, 5).unwrap(), 0.into());
+    assert_eq!(sim.add_clock("clk", 10, 5, 5).unwrap().index(), 0);
 }
 
 #[test]
 #[should_panic]
 fn sim_no_schedule() {
     let mut sim = Simulation::new();
-    assert_eq!(sim.add_clock("clk", 0, 21, 0).unwrap(), 0.into());
+    assert_eq!(sim.add_clock("clk", 0, 21, 0).unwrap().index(), 0);
 
     let _edges = sim.next_edges();
 }
@@ -42,7 +43,7 @@ fn sim_no_schedule() {
 #[should_panic]
 fn sim_no_schedule2() {
     let mut sim = Simulation::new();
-    assert_eq!(sim.add_clock("clk", 0, 21, 0).unwrap(), 0.into());
+    assert_eq!(sim.add_clock("clk", 0, 21, 0).unwrap().index(), 0);
 
     let _edges = sim.time();
 }

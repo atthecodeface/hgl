@@ -1,7 +1,8 @@
 //a Imports
-use crate::make_handle;
+use hgl_utils::index_vec::make_index;
+use hgl_utils::index_vec::VecWithIndex;
+
 use crate::simulation::SimNsName;
-use crate::utils::Array;
 
 //a Clock
 //tp Clock
@@ -187,13 +188,13 @@ impl Schedule {
 
 //a ClockArray, ClockIndex
 //tp ClockIndex
-make_handle!(ClockIndex);
+make_index!(ClockIndex, usize);
 
 //tp ClockArray
 #[derive(Default)]
 pub struct ClockArray {
     /// Clocks in the array
-    clocks: Array<SimNsName, ClockIndex, Clock>,
+    clocks: VecWithIndex<SimNsName, ClockIndex, Clock>,
 
     /// Current running schedule of the clocks
     ///
