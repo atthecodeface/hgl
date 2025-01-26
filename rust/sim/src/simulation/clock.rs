@@ -1,5 +1,7 @@
 //a Imports
+use crate::make_handle;
 use crate::simulation::SimNsName;
+use crate::utils::Array;
 
 //a Clock
 //tp Clock
@@ -185,29 +187,13 @@ impl Schedule {
 
 //a ClockArray, ClockIndex
 //tp ClockIndex
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ClockIndex(usize);
-
-//ip Index<ClockIndex> for ClockArray
-impl std::ops::Index<ClockIndex> for ClockArray {
-    type Output = Clock;
-    fn index(&self, n: ClockIndex) -> &Clock {
-        &self.clocks[n.0]
-    }
-}
-
-//ip From<usize> for ClockIndex
-impl From<usize> for ClockIndex {
-    fn from(n: usize) -> ClockIndex {
-        ClockIndex(n)
-    }
-}
+make_handle!(ClockIndex);
 
 //tp ClockArray
 #[derive(Default)]
 pub struct ClockArray {
     /// Clocks in the array
-    clocks: Vec<Clock>,
+    clocks: Array<SimNsName, ClockIndex, Clock>,
 
     /// Current running schedule of the clocks
     ///
@@ -226,22 +212,23 @@ impl ClockArray {
         negedge_offset: usize,
     ) -> ClockIndex {
         let clock = Clock::new(name, delay, period, negedge_offset);
-        let n = self.clocks.len();
-        self.clocks.push(clock);
-        n.into()
+        self.clocks.add(name, clock)
+    }
+    pub fn find_clock(&self, name: SimNsName) -> Option<ClockIndex> {
+        self.clocks.get(&name)
     }
     pub fn derive_schedule(&mut self) {
         if self.clocks.is_empty() {
             return;
         }
-        self.schedule = Some(Schedule::new(&self.clocks));
+        self.schedule = Some(Schedule::new(&self.clocks.array()));
     }
     #[track_caller]
     pub fn next_edges(&mut self) -> (usize, usize) {
         let Some(schedule) = &mut self.schedule else {
             panic!("Schedule has not been set up - no call of derive_schedule yet");
         };
-        schedule.next_edges(&self.clocks)
+        schedule.next_edges(&self.clocks.array())
     }
     #[track_caller]
     pub fn time(&self) -> usize {
@@ -250,15 +237,7 @@ impl ClockArray {
         };
         schedule.time
     }
-}
-
-//ip IntoIter for ClockArray
-impl<'a> std::iter::IntoIterator for &'a ClockArray {
-    type Item = &'a Clock;
-    type IntoIter = std::slice::Iter<'a, Clock>;
-
-    // Required method
-    fn into_iter(self) -> std::slice::Iter<'a, Clock> {
-        self.clocks.iter()
+    pub fn into_iter(&self) -> impl std::iter::Iterator<Item = &Clock> {
+        self.clocks.into_iter()
     }
 }

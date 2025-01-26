@@ -74,21 +74,15 @@ impl From<(SimNsName, Name)> for NsName {
 //tp Names
 pub struct Names {
     names: Array<&'static str, Name, Pin<String>>,
-    pool: Vec<Pin<String>>,
-    pool_index: HashMap<&'static str, Name>,
     namespace_names: Array<NsName, SimNsName, NsName>,
 }
 
 //ip Default for Names
 impl std::default::Default for Names {
     fn default() -> Self {
-        let pool = vec![];
-        let pool_index = HashMap::default();
         let names = Array::default();
         let namespace_names = Array::default();
         let mut s = Self {
-            pool,
-            pool_index,
             namespace_names,
             names,
         };
@@ -101,7 +95,7 @@ impl std::default::Default for Names {
 impl std::ops::Index<Name> for Names {
     type Output = str;
     fn index(&self, p: Name) -> &str {
-        Pin::into_inner(self.pool[p.0].as_ref())
+        Pin::into_inner(self.names[p].as_ref())
     }
 }
 
@@ -123,8 +117,8 @@ impl Names {
         self.namespace_names.add(f, f)
     }
 
-    fn get_full_name(&self, f: &NsName) -> Option<SimNsName> {
-        self.namespace_names.get(f)
+    fn get_full_name(&self, f: NsName) -> Option<SimNsName> {
+        self.namespace_names.get(&f)
     }
 
     pub fn insert_full_name(
@@ -132,9 +126,9 @@ impl Names {
         namespace: SimNsName,
         name: &str,
     ) -> Result<SimNsName, SimNsName> {
-        let name = self.insert_pool(name);
+        let name = self.find_or_add_to_pool(name);
         let full_name = (namespace, name).into();
-        if let Some(p) = self.get_full_name(&full_name) {
+        if let Some(p) = self.get_full_name(full_name) {
             Err(p)
         } else {
             Ok(self.add_full_name(full_name))
@@ -144,27 +138,15 @@ impl Names {
     //mi add_string
     fn add_string<S: Into<String>>(&mut self, s: S) -> Name {
         let s = s.into();
-        let pinned_string = Pin::new(s.clone());
+        let pinned_string = Pin::new(s);
         let pinned_str: &'static str =
             unsafe { std::mem::transmute::<_, _>(pinned_string.as_ref()) };
-        self.names.add(pinned_str, pinned_string);
-        let n = self.pool.len();
-        self.pool.push(Pin::new(s));
-        let pn = n.into();
-        let s: &str = &self.pool[n];
-        let s: &'static str = unsafe { std::mem::transmute::<_, _>(s) };
-        self.pool_index.insert(s, pn);
-        pn
+        self.names.add(pinned_str, pinned_string)
     }
 
-    //mi get_pool
-    fn get_pool(&self, s: &str) -> Option<Name> {
-        self.pool_index.get(s).copied()
-    }
-
-    //mi insert_pool
-    fn insert_pool<S: Into<String> + AsRef<str>>(&mut self, s: S) -> Name {
-        if let Some(p) = self.get_pool(s.as_ref()) {
+    //mi find_or_add_to_pool
+    fn find_or_add_to_pool<S: Into<String> + AsRef<str>>(&mut self, s: S) -> Name {
+        if let Some(p) = self.find_name(s.as_ref()) {
             p
         } else {
             self.add_string(s)
@@ -173,12 +155,23 @@ impl Names {
 
     //mp add_name
     pub fn add_name<S: Into<String> + AsRef<str>>(&mut self, s: S) -> Name {
-        self.insert_pool(s)
+        self.find_or_add_to_pool(s)
     }
 
     //mp find_name
-    pub fn find_name<S: AsRef<str>>(&self, s: S) -> Option<Name> {
-        self.get_pool(s.as_ref())
+    pub fn find_name(&self, s: &str) -> Option<Name> {
+        // SAFETY:
+        //
+        // s is &'fn str - i.e. must be live for this function
+        //
+        // names.get() *borrows* &'static str, but it's use cannot
+        // outlive this function
+        //
+        // So names.get() when names has an &'static str is its key needs to have its lifetime extended
+        //
+        // No
+        let temp_str: &'static str = unsafe { std::mem::transmute::<_, _>(s) };
+        self.names.get(&temp_str)
     }
 
     //mp fmt_name

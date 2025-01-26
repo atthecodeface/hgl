@@ -82,6 +82,16 @@ where
     N: Key,
     H: Index,
 {
+    //ap is_empty
+    pub fn is_empty(&self) -> bool {
+        self.array.is_empty()
+    }
+
+    //ap array
+    pub fn array(&self) -> &[D] {
+        &self.array
+    }
+
     //mp get
     /// get
     pub fn get(&self, name: &N) -> Option<H> {
@@ -95,5 +105,13 @@ where
         self.array.push(data);
         self.index.insert(name, handle);
         handle
+    }
+    //mp find_or_add
+    /// Add
+    pub fn find_or_add(&mut self, name: N, data: D) -> H {
+        let Some(handle) = self.index.get(&name) else {
+            return self.add(name, data);
+        };
+        *handle
     }
 }
