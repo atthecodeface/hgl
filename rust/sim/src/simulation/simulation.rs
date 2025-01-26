@@ -66,17 +66,19 @@ impl SimulationControl {
                 negedge,
             });
     }
-    pub fn connect_clock(&mut self, clock: &Clock, instance: InstanceHandle, input: usize) {
+    pub fn connect_clock(&mut self, clock: ClockIndex, instance: InstanceHandle, input: usize) {
         let Some(edge_uses) = self.edge_uses.get(&instance) else {
             return;
         };
         for e in edge_uses.iter() {
             if e.input == input {
                 if e.posedge {
+                    self.clocks.edge_used_by(clock, instance, input, true);
                     // clock posedge used by instance and when its posedge fires must set SimEdgeMask.posedge(input) for the instance
                 }
                 if e.negedge {
                     // clock negedge used by instance and when its negedge fires must set SimEdgeMask.negedge(input) for the instance
+                    self.clocks.edge_used_by(clock, instance, input, false);
                 }
             }
         }

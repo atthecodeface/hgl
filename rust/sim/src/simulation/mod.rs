@@ -37,4 +37,10 @@ impl SimEdgeMask {
         self.0 |= (2 << (2 * input)) as u64;
         self
     }
+    pub fn set_posedge(&mut self, input: usize) {
+        self.0 |= (1 << (2 * input)) as u64;
+    }
+    pub fn set_negedge(&mut self, input: usize) {
+        self.0 |= (2 << (2 * input)) as u64;
+    }
 }

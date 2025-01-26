@@ -1,8 +1,10 @@
 //a Imports
-use hgl_utils::index_vec::make_index;
-use hgl_utils::index_vec::VecWithIndex;
+use std::collections::HashMap;
 
-use crate::simulation::SimNsName;
+use hgl_utils::index_vec::make_index;
+use hgl_utils::index_vec::{Idx, VecWithIndex};
+
+use crate::simulation::{InstanceHandle, SimEdgeMask, SimNsName};
 
 //a Clock
 //tp Clock
@@ -192,6 +194,12 @@ make_index!(ClockIndex, usize);
 
 //tp ClockArray
 #[derive(Default)]
+struct ClockUse {
+    instance: InstanceHandle,
+    input: usize,
+}
+
+#[derive(Default)]
 pub struct ClockArray {
     /// Clocks in the array
     clocks: VecWithIndex<SimNsName, ClockIndex, Clock>,
@@ -200,6 +208,9 @@ pub struct ClockArray {
     ///
     /// This should be rebuilt when time is reset
     schedule: Option<Schedule>,
+
+    instance_edges: HashMap<(usize, usize), Vec<(InstanceHandle, SimEdgeMask)>>,
+    clock_uses: HashMap<(ClockIndex, bool), Vec<ClockUse>>,
 }
 
 //ip ClockArray
@@ -232,13 +243,65 @@ impl ClockArray {
         self.schedule = Some(Schedule::new(self.clocks.as_ref()));
     }
 
+    //mp edge_used_by
+    pub fn edge_used_by(
+        &mut self,
+        clock: ClockIndex,
+        instance: InstanceHandle,
+        input: usize,
+        posedge: bool,
+    ) {
+        self.clock_uses
+            .entry((clock, posedge))
+            .or_insert_with(|| vec![])
+            .push(ClockUse { instance, input });
+    }
+
+    //mp derive_instance_edges_of_masks
+    pub fn derive_instance_edges_of_masks(&mut self, ie: &(usize, usize)) {
+        if !self.instance_edges.contains_key(&ie) {
+            return;
+        }
+        let mut blah: HashMap<InstanceHandle, SimEdgeMask> = HashMap::new();
+        for i in 0..self.clocks.len() {
+            if (ie.0 >> i) & 1 == 1 {
+                if let Some(x) = self.clock_uses.get(&(ClockIndex::from_usize(i), true)) {
+                    for c in x.iter() {
+                        blah.entry(c.instance).or_default().set_posedge(c.input);
+                    }
+                }
+            }
+            if (ie.1 >> i) & 1 == 1 {
+                if let Some(x) = self.clock_uses.get(&(ClockIndex::from_usize(i), false)) {
+                    for c in x.iter() {
+                        blah.entry(c.instance).or_default().set_negedge(c.input);
+                    }
+                }
+            }
+        }
+        let mut blah: Vec<(InstanceHandle, SimEdgeMask)> = blah.into_iter().collect();
+        self.instance_edges.insert(*ie, blah);
+    }
+
     //mp next_edges
     #[track_caller]
     pub fn next_edges(&mut self) -> (usize, usize) {
         let Some(schedule) = &mut self.schedule else {
             panic!("Schedule has not been set up - no call of derive_schedule yet");
         };
-        schedule.next_edges(&self.clocks.as_ref())
+        let ie = schedule.next_edges(&self.clocks.as_ref());
+        if !self.instance_edges.contains_key(&ie) {
+            self.derive_instance_edges_of_masks(&ie);
+        }
+        ie
+    }
+
+    //mp instance_edges
+    pub fn instance_edges(&self, edges: &(usize, usize)) -> &[(InstanceHandle, SimEdgeMask)] {
+        let Some(ie) = self.instance_edges.get(edges) else {
+            return &[];
+        };
+        &*ie
     }
 
     //ap time
