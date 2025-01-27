@@ -52,6 +52,13 @@
 //! }
 //! println!("That an average of {} ticks", t.acc()/100);
 //! ```
+//!
+//! # OS-specific notes
+//!
+//! On Apple MacOs 15.1 with rustc 1.84 there is little performance
+//! benefit for using the timer access compared to the std::time::*
+//! variants
+//!
 
 //a Imports
 //a Constants
@@ -122,21 +129,27 @@ impl Delta {
 #[cfg(not(any(target_arch = "aarch64", target_arch = "x86_64",)))]
 mod arch {
     use super::Delta;
-    pub type Value = std::time::Instant;
+    #[derive(Debug, Clone, Copy)]
+    pub struct Value(std::time::Instant);
+    impl std::default::Default for Value {
+        fn default() -> Self {
+            Self(std::time::Instant::now())
+        }
+    }
     #[inline(always)]
     pub fn get_timer() -> Value {
-        std::time::Instant::now()
+        Value(std::time::Instant::now())
     }
     #[inline(always)]
     pub fn get_delta(since: &Value) -> Delta {
-        since.elapsed().as_nanos().into()
+        since.0.elapsed().as_nanos().into()
     }
     #[inline(always)]
     pub fn delta_and_timer(since: &mut Value) -> Delta {
         let now = std::time::Instant::now();
-        let delta = now - *since;
-        *since = now;
-        delta.elapsed().as_nanos().into()
+        let delta = now - since.0;
+        *since = Value(now);
+        delta.as_nanos().into()
     }
 }
 
@@ -247,6 +260,13 @@ impl Timer {
         self.entry = arch::get_timer();
     }
 
+    //mp delta
+    /// Return (without updating) the delta since entry
+    #[inline(always)]
+    pub fn delta(&mut self) -> u64 {
+        arch::get_delta(&self.entry).into()
+    }
+
     //mp exit
     /// Record the ticks on exit from a region-to-time
     #[inline(always)]
@@ -319,7 +339,7 @@ impl AccTimer {
     }
 }
 
-//a Trace
+//a TraceValue, Trace, AccTrace
 //tt TraceValue
 /// A value that can be stored in a Trace; this is implemented for u8,
 /// u16, u32, u64 and usize
