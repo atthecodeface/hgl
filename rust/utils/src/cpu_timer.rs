@@ -66,6 +66,67 @@
 //! println!("That an average of {} ticks", t.acc()/100);
 //! ```
 //!
+//! ## Trace
+//!
+//! The [Trace] type supports tracing the execution path through some logic, getting deltas along the way
+//!
+//! ```
+//! # use hgl_utils::cpu_timer::Trace;
+//! let mut t = Trace::<u32, 3>::default();
+//! t.entry();
+//!   // do something!
+//! t.next();
+//!   // do something else!
+//! t.next();
+//!   // do something else!
+//! t.next();
+//! println!("The three steps took {:?} ticks", t.trace());
+//! ```
+//!
+//! The trace will have three entries, which are the delta times for
+//! the three operations.
+//!
+//! ## AccTrace
+//!
+//! The [AccTrace] accumulates a number of iterations of a Trace;
+//!
+//! ```
+//! # use hgl_utils::cpu_timer::AccTrace;
+//! struct MyThing {
+//!     // things ...
+//!     /// For timing (perhaps only if #[cfg(debug_assertions)] )
+//!     acc: AccTrace::<u32,4>,
+//! }
+//!
+//! impl MyThing {
+//!     fn do_something_complex(&mut self) {
+//!         self.acc.entry();
+//!         // .. do first complex thing
+//!         self.acc.next();
+//!         // .. do second complex thing
+//!         self.acc.next();
+//!         // .. do third complex thing
+//!         self.acc.next();
+//!         // .. do fourth complex thing
+//!         self.acc.next();
+//!         self.acc.acc();
+//!     }
+//! }
+//!
+//! let mut t = MyThing { // ..
+//!     acc: AccTrace::<u32, 4>::default()
+//! };
+//! for _ in 0..100 {
+//!     t.do_something_complex();
+//! }
+//! println!("After 100 iterations the accumulated times for the four steps is {:?} ticks", t.acc.acc_trace());
+//! t.acc.clear();
+//! // ready to be complex all again
+//! ```
+//!
+//! The trace will have four entries, which are the accumulated delta times for
+//! the four complex things.
+//!
 //! # OS-specific notes
 //!
 //! These outputs are generated from tests/cpu_timer.rs, test_timer_values
@@ -511,6 +572,14 @@ impl TraceValue for u64 {}
 impl TraceValue for usize {}
 
 //tp Trace
+/// A [Trace] can be used to trace the execution of some code, from an
+/// entry point through a series of intemediate points. The delta for
+/// each step can be recorded.
+///
+/// The 'entry' method is called first; at each completed step the
+/// 'next' method is called. At the end (after no more than 'N'
+/// steps!) the deltas for each step of the trace can be recovered
+/// with the 'trace' method.
 #[derive(Debug)]
 pub struct Trace<T: TraceValue, const N: usize> {
     last: arch::Value,
@@ -562,9 +631,19 @@ where
         }
     }
 
-    //mp values
+    //mp acc_n
+    /// Add the ticks on exit to a specific region
+    #[inline(always)]
+    pub fn acc_n(&mut self, index: usize) {
+        if index < N {
+            let delta = arch::delta_and_timer(&mut self.last);
+            self.trace[index] = delta.into();
+        }
+    }
+
+    //mp trace
     /// Return the current trace
-    pub fn values(&self) -> &[T; N] {
+    pub fn trace(&self) -> &[T; N] {
         &self.trace
     }
 }
@@ -628,7 +707,7 @@ where
     //mp last_trace
     /// Return the current trace
     pub fn last_trace(&self) -> &[T; N] {
-        self.trace.values()
+        self.trace.trace()
     }
 
     //mp acc_trace

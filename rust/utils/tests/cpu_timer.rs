@@ -104,7 +104,7 @@ fn test_trace() -> Result<(), String> {
         let mut t0 = Trace::<u32, 16>::default();
         trace_work(&mut t0);
         let mut samples: Vec<u32> = vec![];
-        for (i, t) in t0.values().iter().enumerate() {
+        for (i, t) in t0.trace().iter().enumerate() {
             samples.push(t / (i + 1) as u32);
         }
         result = check_data(&samples);
