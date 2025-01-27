@@ -26,11 +26,18 @@ fn test_timer() {
     assert_eq!(t0.value(), 0, "Value should be 0 at clear");
 }
 
+fn do_work() -> () {
+    let mut t = Timer::default();
+    for _ in 0..100 {
+        t.entry();
+        t.exit();
+    }
+}
+
 #[test]
 fn test_acc_timer() {
     const N: usize = 10_000;
     let mut t0 = AccTimer::default();
-    let mut t1 = Timer::default();
     let mut passed = false;
 
     let mut acc_10x = 0;
@@ -38,7 +45,7 @@ fn test_acc_timer() {
         let t_acc_x10 = {
             for _ in 0..N * 10 {
                 t0.entry();
-                t1.entry();
+                do_work();
                 t0.exit();
             }
             t0.acc()
@@ -49,7 +56,7 @@ fn test_acc_timer() {
             for _ in 0..10 {
                 for _ in 0..N {
                     t0.entry();
-                    t1.entry();
+                    do_work();
                     t0.exit();
                 }
                 acc += t0.acc();
@@ -74,29 +81,27 @@ fn test_acc_timer() {
 
     let mut zeros = 0;
     let mut outliers = 0;
-    let mut above = 0;
     for _ in 0..N {
         t0.clear();
         t0.entry();
-        t1.entry();
+        do_work();
         t0.exit();
         let v = t0.value() as usize;
         if v == 0 {
             zeros += 1;
         }
-        if v * 10 * N > acc_10x as usize {
-            above += 1;
-        }
-        if v * 10 * N > 4 * acc_10x as usize {
+        if v * 10 * N < acc_10x as usize * 80 / 100 {
             outliers += 1;
         }
+        if v * 10 * N > acc_10x as usize * 2 {
+            outliers += 1;
+        }
+        dbg!(v);
     }
 
-    dbg!(acc_10x, zeros, above, outliers, (acc_10x as usize) / 10 / N);
+    dbg!(acc_10x, zeros, outliers, (acc_10x as usize) / 10 / N);
 
     assert!(zeros != N, "Cannot all be zero");
-    assert!(above < N * 9 / 10, "Fewer than 90% should be above average");
-    assert!(above > N * 1 / 10, "More than 10% should be above average");
     assert!(outliers < N * 1 / 10, "Fewer than 10% should be outliers");
     assert!(false);
 }
