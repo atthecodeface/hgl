@@ -1,0 +1,427 @@
+//a Documentation
+//! This library provides architecture/implementation specific CPU
+//! counters for high precision timing
+//!
+//! The timers are really CPU tick counters, and so are not resilient
+//! to threads being descheduled or being moved between CPU cores; the
+//! library is designed for precise timing of short code sections
+//! where the constraints are understood.
+//!
+//! # CPU support (for non-experimental Rustc target architectures)
+//!
+//! - [ ] x86_64 (implemented, not tested)
+//! - [ ] x86    
+//! - [x] aarch64
+//! - [x] wasm32
+//!
+//! # Types
+//!
+//! ## Timer
+//!
+//! The base type provided by this library is [Timer], which allows
+//! for recording the delta in CPU ticks between the entry to a region
+//! of code and the exit from it
+//!
+//! ```
+//! # use hgl_utils::cpu_timer::Timer;
+//! let mut t = Timer::default();
+//! t.entry();
+//! // do something!
+//! t.exit();
+//! println!("That took {} ticks", t.value());
+//! ```
+//!
+//! ## AccTimer
+//!
+//! Frequently one will want to repeatedly time a piece of code, to
+//! attain an average, or to just accumulate the time taken in some
+//! code whenever it is called to determine if it is a 'hotspot'. The
+//! [AccTimer] accumulates the time delta between entry and exit
+//!
+//! ```
+//! # use hgl_utils::cpu_timer::AccTimer;
+//! let mut t = AccTimer::default();
+//! for i in 0..100 {
+//!     t.entry();
+//!     // do something!
+//!     t.exit();
+//!     println!("Iteration {i} took {} ticks", t.value());
+//! }
+//! println!("That an average of {} ticks", t.acc()/100);
+//! ```
+
+//a Imports
+use std::arch::asm;
+
+//a Constants
+//cp TICKS_PER_US_APPLE_M4
+pub const TICKS_PER_US_APPLE_M4: u64 = 1_000_000_000;
+
+//a Value
+//ti Value
+/// A private type that is returned by get_timer, and which can be
+/// used for all the timer calculations
+///
+/// This is used to abstract the internals from the public API
+#[repr(transparent)]
+#[derive(Debug, Default, Clone, Copy)]
+struct Value(u64);
+
+//ip From<u64> for Value
+impl From<u64> for Value {
+    #[inline(always)]
+    fn from(t: u64) -> Self {
+        Self(t)
+    }
+}
+
+//ip From<Value> for u64
+impl From<Value> for u64 {
+    #[inline(always)]
+    fn from(v: Value) -> Self {
+        v.0
+    }
+}
+
+//ip From<u8/u16/u32/u128/usize> for Value and back - needs u64 elsewhere
+macro_rules! from_into_value {
+    {$t:ty} => {
+        impl From<Value> for $t {
+            #[inline(always)]
+            fn from(v: Value) -> Self {
+                v.0 as $t
+            }
+        }
+        impl From<$t> for Value {
+            #[inline(always)]
+            fn from(t: $t) -> Self {
+                (t as u64).into()
+            }
+        }
+    }
+}
+from_into_value!(u8);
+from_into_value!(u16);
+from_into_value!(u32);
+from_into_value!(u128);
+from_into_value!(usize);
+
+//ip Value
+impl Value {
+    //cp delta
+    /// Calculate the delta between this and a previous value
+    #[inline(always)]
+    fn delta(self, prev: Self) -> Self {
+        self.0.wrapping_sub(prev.0).into()
+    }
+
+    //cp add
+    /// Accmulate another delta into this value
+    #[inline(always)]
+    fn add(self, other: Self) -> Self {
+        self.0.wrapping_add(other.0).into()
+    }
+}
+
+//a Architecture-specific get_timer functions
+//fi get_timer for OTHER architectures
+#[cfg(not(any(target_arch = "aarch64", target_arch = "x86_64",)))]
+#[inline(always)]
+fn get_timer() -> Value {
+    0_u64.into()
+}
+
+//fi get_timer for Aarch64
+/// Known to work on Apple M4 (MacbookPro 2024)
+#[cfg(target_arch = "aarch64")]
+#[inline(always)]
+fn get_timer() -> Value {
+    let timer: u64;
+    unsafe {
+        asm!(
+            "isb
+            mrs {timer}, cntvct_el0",
+            timer = out(reg) timer,
+        );
+    }
+    timer.into()
+}
+
+//fi get_timer for x86_64
+/// Not tested yet
+#[cfg(target_arch = "x86_64")]
+#[inline(always)]
+fn get_timer() -> Value {
+    use std::arch::asm;
+    let lo: u32;
+    let hi: u32;
+    unsafe {
+        asm!(
+            "rdtsc",
+            lo = out(a) lo,
+            hi = out(d) hi,
+        );
+    }
+    let timer = ((hi as u64) << 32) | (lo as u64);
+    timer.into()
+}
+
+//a Timer
+//tp Timer
+/// A timer that uses the underlying CPU clock ticks to generate
+/// precise timings for short-term execution
+///
+/// This should *not* be expected to be correct in all cases; if a
+/// thread sleeps or is interrupted, for example by the kernel, for
+/// any reason, then the CPU timer value may not be useful; if the
+/// thread migrates to a different CPU core it may become invalid; etc
+///
+/// The usage model is to capture an 'entry' time and an 'exit' time;
+/// the *value* method can then be used to retrieve the CPU ticks
+/// between the entry and exit
+///
+/// ```
+/// # use hgl_utils::cpu_timer::Timer;
+/// let mut t = Timer::default();
+/// t.entry();
+/// // do something!
+/// t.exit();
+/// println!("That took {} ticks", t.value());
+/// ```
+#[derive(Default, Debug)]
+pub struct Timer {
+    entry: Value,
+    delta: Value,
+}
+
+//ip Timer
+impl Timer {
+    //mp clear
+    /// Clear the timer and accumulated values
+    pub fn clear(&mut self) {
+        *self = Self::default();
+    }
+
+    //mp entry
+    /// Record the ticks on entry to a region-to-time
+    #[inline(always)]
+    pub fn entry(&mut self) {
+        self.entry = get_timer();
+    }
+
+    //mp exit
+    /// Record the ticks on exit from a region-to-time
+    #[inline(always)]
+    pub fn exit(&mut self) {
+        let now = get_timer();
+        self.delta = now.delta(self.entry);
+    }
+
+    //mp value
+    /// Record the ticks on exit from a region-to-time, and update the
+    /// accumulator
+    #[inline(always)]
+    pub fn value(&self) -> u64 {
+        self.delta.into()
+    }
+
+    //mi raw
+    /// Return the internal value for other methods in this library
+    #[inline(always)]
+    fn raw(&self) -> Value {
+        self.delta
+    }
+}
+
+//a AccTimer
+//tp AccTimer
+/// An timer that accumulates the value for multiple timer entry-exits
+///
+#[derive(Default, Debug)]
+pub struct AccTimer {
+    timer: Timer,
+    acc: Value,
+}
+
+//ip AccTimer
+impl AccTimer {
+    //mp clear
+    /// Clear the timer and accumulated values
+    pub fn clear(&mut self) {
+        *self = Self::default();
+    }
+
+    //mp entry
+    /// Record the ticks on entry to a region-to-time
+    #[inline(always)]
+    pub fn entry(&mut self) {
+        self.timer.entry();
+    }
+
+    //mp exit
+    /// Record the ticks on exit from a region-to-time
+    #[inline(always)]
+    pub fn exit(&mut self) {
+        self.timer.exit();
+        self.acc.add(self.timer.raw());
+    }
+
+    //mp value
+    /// Record the ticks on exit from a region-to-time, and update the
+    /// accumulator
+    #[inline(always)]
+    pub fn value(&self) -> u64 {
+        self.timer.value()
+    }
+
+    //mp acc
+    /// Read the accumulator value
+    #[inline(always)]
+    pub fn acc(&self) -> u64 {
+        self.acc.into()
+    }
+}
+
+//a Trace
+//tt TraceValue
+/// A value that can be stored in a Trace; this is implemented for u8,
+/// u16, u32, u64 and usize
+// Note that the type 'Value' is private
+#[allow(private_bounds)]
+pub trait TraceValue: Default + Copy + From<Value> + Into<Value> {}
+
+//ip TraceValue for u8/u16/u32/u64/usize
+impl TraceValue for u8 {}
+impl TraceValue for u16 {}
+impl TraceValue for u32 {}
+impl TraceValue for u64 {}
+impl TraceValue for usize {}
+
+//tp Trace
+#[derive(Debug)]
+pub struct Trace<T: TraceValue, const N: usize> {
+    last: Value,
+    index: usize,
+    trace: [T; N],
+}
+
+//ip Default for Trace
+impl<T, const N: usize> std::default::Default for Trace<T, N>
+where
+    T: TraceValue,
+    [T; N]: Default,
+{
+    fn default() -> Self {
+        let last = Value::default();
+        let index = 0;
+        let trace = <[T; N]>::default();
+        Self { last, index, trace }
+    }
+}
+
+//ip Trace
+impl<T, const N: usize> Trace<T, N>
+where
+    T: TraceValue,
+{
+    //mp clear
+    /// Clear the timer and accumulated values
+    pub fn clear(&mut self) {
+        unsafe { *self = std::mem::zeroed() };
+    }
+
+    //mp entry
+    /// Record the ticks on entry to a region-to-time
+    #[inline(always)]
+    pub fn entry(&mut self) {
+        self.last = get_timer();
+        self.index = 0;
+    }
+
+    //mp next
+    /// Record the ticks on exit from a region-to-time
+    #[inline(always)]
+    pub fn next(&mut self) {
+        if self.index < N {
+            let t = get_timer();
+            self.trace[self.index] = t.delta(self.last).into();
+            self.index += 1;
+            self.last = t;
+        }
+    }
+
+    //mp values
+    /// Return the current trace
+    pub fn values(&self) -> &[T; N] {
+        &self.trace
+    }
+}
+
+//tp AccTrace
+#[derive(Debug)]
+pub struct AccTrace<T: TraceValue, const N: usize> {
+    trace: Trace<T, N>,
+    acc: [T; N],
+}
+
+//ip Default for AccTrace
+impl<T, const N: usize> std::default::Default for AccTrace<T, N>
+where
+    T: TraceValue,
+    [T; N]: Default,
+{
+    fn default() -> Self {
+        let trace = Trace::default();
+        let acc = <[T; N]>::default();
+        Self { trace, acc }
+    }
+}
+
+//ip AccTrace
+impl<T, const N: usize> AccTrace<T, N>
+where
+    T: TraceValue,
+{
+    //mp clear
+    /// Clear the timer and accumulated values
+    pub fn clear(&mut self) {
+        self.trace.clear();
+        unsafe { self.acc = std::mem::zeroed() };
+    }
+
+    //mp entry
+    /// Record the ticks on entry to a region-to-time
+    #[inline(always)]
+    pub fn entry(&mut self) {
+        self.trace.entry();
+    }
+
+    //mp next
+    /// Record the ticks on exit from a region-to-time
+    #[inline(always)]
+    pub fn next(&mut self) {
+        self.trace.next();
+    }
+
+    //mp acc
+    /// Accumulate the current trace into the accumulated trace
+    pub fn acc(&mut self) {
+        for i in 0..N {
+            let v: Value = self.acc[i].into();
+            v.add(self.trace.trace[i].into());
+            self.acc[i] = v.into();
+        }
+    }
+
+    //mp last_trace
+    /// Return the current trace
+    pub fn last_trace(&self) -> &[T; N] {
+        self.trace.values()
+    }
+
+    //mp acc_trace
+    /// Return the accumulated trace
+    pub fn acc_trace(&self) -> &[T; N] {
+        &self.acc
+    }
+}

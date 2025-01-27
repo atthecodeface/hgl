@@ -1,7 +1,7 @@
 //a Imports
 use std::collections::HashMap;
 
-use crate::index_vec::{Idx, IndexedVec};
+use crate::{Idx, IndexedVec};
 
 //a IndexKey
 //tt IndexKey

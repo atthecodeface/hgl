@@ -1,8 +1,8 @@
 //a Imports
 use std::pin::Pin;
 
-use crate::index_vec::make_index;
-use crate::index_vec::VecWithIndex;
+use crate::make_index;
+use crate::VecWithIndex;
 
 //a Name
 make_index!(StringIndex, usize);

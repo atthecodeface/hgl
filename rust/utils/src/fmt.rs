@@ -1,7 +1,7 @@
 use crate::refs::as_u8s;
 
 //fi fmt_hex
-pub fn fmt_hex<T: Sized>(obj: &T, ascii: &mut [u8]) {
+pub fn fmt_hex<T: Sized + Copy>(obj: &T, ascii: &mut [u8]) {
     let data = unsafe { as_u8s(obj) };
     let dn = data.len() * 2;
     let n = ascii.len();
@@ -26,7 +26,7 @@ pub fn fmt_hex<T: Sized>(obj: &T, ascii: &mut [u8]) {
 }
 
 //fi fmt_bin
-pub fn fmt_bin<T: Sized + std::fmt::Debug>(obj: &T, ascii: &mut [u8]) {
+pub fn fmt_bin<T: Sized + Copy + std::fmt::Debug>(obj: &T, ascii: &mut [u8]) {
     let data = unsafe { as_u8s(obj) };
     let dn = data.len() * 8;
     let n = ascii.len();

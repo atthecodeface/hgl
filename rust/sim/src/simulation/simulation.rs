@@ -2,7 +2,7 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 
-use hgl_utils::index_vec::VecWithIndex;
+use hgl_indexed_vec::VecWithIndex;
 
 use crate::simulation::{
     Clock, ClockArray, ClockIndex, Instance, InstanceHandle, Name, NameFmt, Names, NamespaceStack,

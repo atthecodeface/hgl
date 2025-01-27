@@ -1,8 +1,6 @@
 //a Imports
-use std::pin::Pin;
-
-use hgl_utils::index_vec::make_index;
-use hgl_utils::index_vec::{StringIndex, StringsWithIndex, VecWithIndex};
+use hgl_indexed_vec::make_index;
+use hgl_indexed_vec::{StringIndex, StringsWithIndex, VecWithIndex};
 
 //a Name
 pub type Name = StringIndex;

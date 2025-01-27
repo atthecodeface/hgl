@@ -15,7 +15,7 @@ macro_rules! make_index {
         #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Ord, PartialOrd, Hash)]
         pub struct $id($t);
 
-        impl $crate :: index_vec :: Idx for $id {
+        impl $crate :: Idx for $id {
             fn from_usize(n: usize) -> Self { Self(n as usize)}
             fn index(self) -> usize {
                 self.0 as usize

@@ -18,3 +18,4 @@ thiserror.workspace = true
 
 # Only for tests...
 hgl_utils.workspace = true
+hgl_indexed_vec.workspace = true

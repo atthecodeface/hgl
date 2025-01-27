@@ -1,8 +1,8 @@
 //a Imports
 use std::collections::HashMap;
 
-use hgl_utils::index_vec::make_index;
-use hgl_utils::index_vec::{Idx, VecWithIndex};
+use hgl_indexed_vec::make_index;
+use hgl_indexed_vec::{Idx, VecWithIndex};
 
 use crate::simulation::{InstanceHandle, SimEdgeMask, SimNsName};
 

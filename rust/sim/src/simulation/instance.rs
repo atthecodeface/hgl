@@ -4,8 +4,7 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
-use hgl_utils::index_vec::make_index;
-use hgl_utils::index_vec::VecWithIndex;
+use hgl_indexed_vec::make_index;
 
 use crate::simulation::{Name, Names, SimNsName, SimStateIndex, Simulation, StateDesc};
 use crate::traits::{Component, SimBit, SimBv, SimValue, Simulatable};

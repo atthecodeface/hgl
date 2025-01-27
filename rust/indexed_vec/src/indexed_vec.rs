@@ -1,7 +1,7 @@
 //a Imports
 use std::marker::PhantomData;
 
-use crate::index_vec::{Idx, IndexedSlice};
+use crate::{Idx, IndexedSlice};
 
 //a IndexedVec
 //tp IndexedVec

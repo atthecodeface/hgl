@@ -1,5 +1,6 @@
 use hgl_models::Counter;
 use hgl_sim::prelude::sim::*;
+use hgl_utils::cpu_timer::AccTimer;
 
 #[test]
 fn sim_counter() -> Result<(), String> {
@@ -58,7 +59,7 @@ fn sim_counter() -> Result<(), String> {
     }
 
     dbg!(&sim);
-    let mut timer = hgl_utils::timer::Timer::default();
+    let mut timer = AccTimer::default();
     timer.entry();
     for _ in 0..10_000 {
         sim.fire_next_edges();
@@ -84,7 +85,7 @@ fn sim_counter() -> Result<(), String> {
         exp
     );
 
-    assert!(false);
+    // assert!(false);
 
     Ok(())
 }

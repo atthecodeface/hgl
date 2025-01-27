@@ -1,5 +1,5 @@
 [package]
-name = "hgl_sim"
+name = "hgl_indexed_vec"
 edition.workspace = true
 version.workspace = true
 description.workspace = true
@@ -11,8 +11,5 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-hgl_indexed_vec.workspace = true
-hgl_utils.workspace = true
-rand.workspace = true
 serde.workspace = true
 thiserror.workspace = true

@@ -1,5 +1,5 @@
+use hgl_indexed_vec::Idx;
 use hgl_sim::prelude::sim::*;
-use hgl_utils::index_vec::Idx;
 
 #[test]
 fn sim_clocks() -> Result<(), String> {
