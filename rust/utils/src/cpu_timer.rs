@@ -53,13 +53,64 @@
 //! println!("That an average of {} ticks", t.acc()/100);
 //! ```
 //!
-//! # OS-specific notes
+//! # Ticks takenOS-specific notes
 //!
-//! On Apple MacOs 15.1 with rustc 1.84 there is little performance
-//! benefit for using the timer access compared to the std::time::*
-//! variants
+//! These outputs are generated from tests/cpu_timer.rs, test_timer_values
 //!
-//! ## MacOs x86_64
+//! The tables will have a rough granularity of the time 'taken' to fetch a timer value
+//!
+//! ## MacOs aarch64 (Macbook Pro M4 Max Os15.1 rustc 1.84
+//!
+//! The granularity of the clock appears to be 41 or 42 ticks, and the
+//! asm implementation seems to match the std time implementation.
+//!
+//! | %age | arch release |   arch debug | std debug    | std release  |
+//! |------|--------------|--------------|--------------|--------------|
+//! | 10   |      0       |      41      |       41     |         0    |
+//! | 25   |      0       |      42      |       42     |         0    |
+//! | 50   |     41       |      42      |       42     |         0    |
+//! | 75   |     41       |      42      |       83     |        41    |
+//! | 90   |     42       |      83      |       83     |        41    |
+//! | 95   |     42       |      83      |       83     |        41    |
+//! | 99   |     42       |      84      |       84     |        42    |
+//! | 100  |  27084       |   11125      |     2166     |      1125    |
+//!
+//! ### MacOs aarch64 std::time release
+//!
+//! Percentile distribution
+//! 56, 0
+//! 71, 41
+//! 99, 42
+//! 100, 1125
+//!
+//! ### MacOs aarch64 std::time debug
+//!
+//! Percentile distribution
+//! 6, 41
+//! 18, 42
+//! 71, 83
+//! 98, 84
+//! 99, 125
+//! 100, 2166
+//!
+//! ### MacOs aarch64 debug
+//!
+//! Percentile distribution
+//! 22, 41
+//! 66, 42
+//! 88, 83
+//! 99, 84
+//! 100, 11125
+//!
+//! ### MacOs aarch64 release
+//!
+//! Percentile distribution
+//! 40, 0
+//! 60, 41
+//! 99, 42
+//! 100, 27084
+//!
+//! ## MacOs x86_64 debug
 //!
 //! Percentile distribution
 //! 4, 62
