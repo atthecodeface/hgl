@@ -283,6 +283,56 @@
 //cp TICKS_PER_US_APPLE_M4
 pub const TICKS_PER_US_APPLE_M4: u64 = 1_000_000_000;
 
+//a TraceValue, TraceCount
+//tt TraceValue
+/// A value that can be stored in a Trace; this is implemented for u8,
+/// u16, u32, u64 and usize
+pub trait TraceCount: Default + Copy {
+    fn sat_inc(&mut self);
+    fn as_usize(self) -> usize;
+}
+impl TraceCount for () {
+    fn sat_inc(&mut self) {}
+    fn as_usize(self) -> usize {
+        0
+    }
+}
+//ip TraceCount for ()/u8/u16/u32/u64/u128/usize
+macro_rules! trace_count {
+    {$t:ty} => {
+        impl TraceCount for $t {
+            #[inline(always)]
+            fn sat_inc(&mut self) {
+                if *self != Self::MAX {*self = self.wrapping_add(1);}
+            }
+            #[inline(always)]
+            fn as_usize(self) -> usize {
+                self as usize
+            }
+        }
+    }
+}
+trace_count!(u8);
+trace_count!(u16);
+trace_count!(u32);
+trace_count!(u64);
+trace_count!(u128);
+trace_count!(usize);
+
+//tt TraceValue
+/// A value that can be stored in a Trace; this is implemented for u8,
+/// u16, u32, u64 and usize
+// Note that the type 'Delta' is private
+#[allow(private_bounds)]
+pub trait TraceValue: Default + Copy + From<Delta> + Into<Delta> {}
+
+//ip TraceValue for u8/u16/u32/u64/usize
+impl TraceValue for u8 {}
+impl TraceValue for u16 {}
+impl TraceValue for u32 {}
+impl TraceValue for u64 {}
+impl TraceValue for usize {}
+
 //a Delta
 //ti Delta
 /// A private type that is returned by get_timer, and which can be
@@ -306,6 +356,22 @@ impl From<Delta> for u64 {
     #[inline(always)]
     fn from(v: Delta) -> Self {
         v.0
+    }
+}
+
+//ip From<()> for Delta
+impl From<()> for Delta {
+    #[inline(always)]
+    fn from(_t: ()) -> Self {
+        Self(0)
+    }
+}
+
+//ip From<Delta> for ()
+impl From<Delta> for () {
+    #[inline(always)]
+    fn from(_v: Delta) -> Self {
+        ()
     }
 }
 
@@ -344,9 +410,8 @@ impl Delta {
 }
 
 //a Architecture-specific get_timer functions
-//fi get_timer for OTHER architectures
-#[cfg(not(any(target_arch = "aarch64", target_arch = "x86_64",)))]
-mod arch {
+//fi Standard arch implementation
+mod arch_std {
     use super::Delta;
     #[derive(Debug, Clone, Copy)]
     pub struct Value(std::time::Instant);
@@ -371,6 +436,10 @@ mod arch {
         delta.as_nanos().into()
     }
 }
+
+//fi get_timer for OTHER architectures
+#[cfg(not(any(target_arch = "aarch64", target_arch = "x86_64",)))]
+use arch_std as arch;
 
 //fi get_timer for Aarch64
 /// Known to work on Apple M4 (MacbookPro 2024)
@@ -556,21 +625,7 @@ impl AccTimer {
     }
 }
 
-//a TraceValue, Trace, AccTrace
-//tt TraceValue
-/// A value that can be stored in a Trace; this is implemented for u8,
-/// u16, u32, u64 and usize
-// Note that the type 'Delta' is private
-#[allow(private_bounds)]
-pub trait TraceValue: Default + Copy + From<Delta> + Into<Delta> {}
-
-//ip TraceValue for u8/u16/u32/u64/usize
-impl TraceValue for u8 {}
-impl TraceValue for u16 {}
-impl TraceValue for u32 {}
-impl TraceValue for u64 {}
-impl TraceValue for usize {}
-
+//a Trace, AccTrace
 //tp Trace
 /// A [Trace] can be used to trace the execution of some code, from an
 /// entry point through a series of intermediate points. The delta for
@@ -643,7 +698,8 @@ where
 //tp AccVec
 /// An [AccVec] can be used to accumulate the times taken to execute
 /// different branches of code, from a common entry point. Each branch
-/// is allocated a different index into the AccVec.
+/// is allocated a different index into the AccVec. It can also count
+/// the entries.
 ///
 /// The 'entry' method is called first; when a branch completed it
 /// invokes the 'acc' method with its index, and the delta time since
@@ -655,28 +711,33 @@ where
 ///
 /// An AccVec can be generated for any N, for T in u8, u16, u32, u64, u128 and usize
 #[derive(Debug)]
-pub struct AccVec<T: TraceValue, const N: usize> {
+pub struct AccVec<T: TraceValue, C: TraceCount, const N: usize> {
     entry: arch::Value,
     accs: [T; N],
+    cnts: [C; N],
 }
 
 //ip Default for AccVec
-impl<T, const N: usize> std::default::Default for AccVec<T, N>
+impl<T, C, const N: usize> std::default::Default for AccVec<T, C, N>
 where
     T: TraceValue,
+    C: TraceCount,
     [T; N]: Default,
+    [C; N]: Default,
 {
     fn default() -> Self {
         let entry = arch::Value::default();
         let accs = <[T; N]>::default();
-        Self { entry, accs }
+        let cnts = <[C; N]>::default();
+        Self { entry, accs, cnts }
     }
 }
 
 //ip AccVec
-impl<T, const N: usize> AccVec<T, N>
+impl<T, C, const N: usize> AccVec<T, C, N>
 where
     T: TraceValue,
+    C: TraceCount,
 {
     //mp clear
     /// Clear the timer and accumulated values
@@ -699,6 +760,7 @@ where
             let delta = arch::get_delta(&self.entry);
             let acc = delta.add(self.accs[index].into());
             self.accs[index] = acc.into();
+            self.cnts[index].sat_inc();
         }
     }
 
@@ -706,6 +768,12 @@ where
     /// Return the accumulated values
     pub fn accs(&self) -> &[T; N] {
         &self.accs
+    }
+
+    //mp cnts
+    /// Return the accumulated counts
+    pub fn cnts(&self) -> &[C; N] {
+        &self.cnts
     }
 }
 

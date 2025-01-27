@@ -2,13 +2,13 @@
 name = "hgl_models"
 edition.workspace = true
 version.workspace = true
-description.workspace = true
 homepage.workspace = true
 documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "Simulation and support for models"
 
 [dependencies]
 hgl_sim.workspace = true

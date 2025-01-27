@@ -2,13 +2,17 @@
 name = "hgl_sim"
 edition.workspace = true
 version.workspace = true
-description.workspace = true
 homepage.workspace = true
 documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "Simulation and support for models"
+
+[features]
+default = ["timer"]
+timer = []
 
 [dependencies]
 hgl_indexed_vec.workspace = true
