@@ -573,13 +573,15 @@ impl TraceValue for usize {}
 
 //tp Trace
 /// A [Trace] can be used to trace the execution of some code, from an
-/// entry point through a series of intemediate points. The delta for
+/// entry point through a series of intermediate points. The delta for
 /// each step can be recorded.
 ///
 /// The 'entry' method is called first; at each completed step the
 /// 'next' method is called. At the end (after no more than 'N'
 /// steps!) the deltas for each step of the trace can be recovered
 /// with the 'trace' method.
+///
+/// A Trace can be generated for any N, for T in u8, u16, u32, u64, u128 and usize
 #[derive(Debug)]
 pub struct Trace<T: TraceValue, const N: usize> {
     last: arch::Value,
@@ -631,20 +633,79 @@ where
         }
     }
 
+    //mp trace
+    /// Return the current trace
+    pub fn trace(&self) -> &[T; N] {
+        &self.trace
+    }
+}
+
+//tp AccVec
+/// An [AccVec] can be used to accumulate the times taken to execute
+/// different branches of code, from a common entry point. Each branch
+/// is allocated a different index into the AccVec.
+///
+/// The 'entry' method is called first; when a branch completed it
+/// invokes the 'acc' method with its index, and the delta time since
+/// the entry is added to that entry's accumulator.
+///
+/// Invoking the 'acc' method does not update the 'entry' time, and it
+/// is quite sensible to issue multiple 'acc' invocations (with
+/// different index values) for a given 'entry' invocation.
+///
+/// An AccVec can be generated for any N, for T in u8, u16, u32, u64, u128 and usize
+#[derive(Debug)]
+pub struct AccVec<T: TraceValue, const N: usize> {
+    entry: arch::Value,
+    accs: [T; N],
+}
+
+//ip Default for AccVec
+impl<T, const N: usize> std::default::Default for AccVec<T, N>
+where
+    T: TraceValue,
+    [T; N]: Default,
+{
+    fn default() -> Self {
+        let entry = arch::Value::default();
+        let accs = <[T; N]>::default();
+        Self { entry, accs }
+    }
+}
+
+//ip AccVec
+impl<T, const N: usize> AccVec<T, N>
+where
+    T: TraceValue,
+{
+    //mp clear
+    /// Clear the timer and accumulated values
+    pub fn clear(&mut self) {
+        unsafe { *self = std::mem::zeroed() };
+    }
+
+    //mp entry
+    /// Record the ticks on entry to a region-to-time
+    #[inline(always)]
+    pub fn entry(&mut self) {
+        self.entry = arch::get_timer();
+    }
+
     //mp acc_n
     /// Add the ticks on exit to a specific region
     #[inline(always)]
     pub fn acc_n(&mut self, index: usize) {
         if index < N {
-            let delta = arch::delta_and_timer(&mut self.last);
-            self.trace[index] = delta.into();
+            let delta = arch::get_delta(&self.entry);
+            let acc = delta.add(self.accs[index].into());
+            self.accs[index] = acc.into();
         }
     }
 
-    //mp trace
-    /// Return the current trace
-    pub fn trace(&self) -> &[T; N] {
-        &self.trace
+    //mp accs
+    /// Return the accumulated values
+    pub fn accs(&self) -> &[T; N] {
+        &self.accs
     }
 }
 
