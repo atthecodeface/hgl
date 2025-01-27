@@ -112,6 +112,8 @@
 //!
 //! ## MacOs x86_64 debug
 //!
+//! MacBook Pro 2018 Os 15.0 rustc 1.84 2.2GHz i7
+//!
 //! Percentile distribution
 //! 4, 62
 //! 22, 64
@@ -122,6 +124,57 @@
 //! 98, 74
 //! 99, 76
 //! 100, 59500
+
+x86_64 release
+    
+Percentile distribution
+5, 12
+73, 14
+99, 16
+100, 42918
+
+x86_64 debug
+
+Percentile distribution
+4, 62
+22, 64
+55, 66
+81, 68
+92, 70
+96, 72
+98, 74
+99, 82
+100, 65262    
+
+std debug 
+Percentile distribution
+1, 70
+4, 71
+9, 72
+15, 73
+22, 74
+28, 75
+34, 76
+40, 77
+45, 78
+50, 79
+56, 80
+66, 81
+79, 82
+90, 83
+96, 84
+98, 85
+99, 132
+    100, 17101
+
+    std release
+    Percentile distribution
+3, 37
+44, 38
+92, 39
+96, 40
+99, 41
+100, 24560
 
 //a Imports
 //a Constants
