@@ -7,6 +7,19 @@
 //! library is designed for precise timing of short code sections
 //! where the constraints are understood.
 //!
+//! # Precision
+//!
+//! For some architectures a real CPU ASM instruction is used to get
+//! the tick count. For x86_64 this returns (in an unvirtualized
+//! world) the real CPU tick counter, with a fine precision. For
+//! Aarch64 on MacOs this is no better than using std::time, and has a
+//! precision of about 40 ticks. However, the asm implementation has a
+//! lower overhead on Aarch64 on MacOs, so it is still worth using.
+//!
+//! The library does not attempt to take into account any overheads of
+//! using the timers; that is for the user. Normally the overheads
+//! will be small compared to the times being measured.
+//!
 //! # CPU support (for non-experimental Rustc target architectures)
 //!
 //! - [ ] x86    
@@ -53,29 +66,35 @@
 //! println!("That an average of {} ticks", t.acc()/100);
 //! ```
 //!
-//! # Ticks takenOS-specific notes
+//! # OS-specific notes
 //!
 //! These outputs are generated from tests/cpu_timer.rs, test_timer_values
 //!
-//! The tables will have a rough granularity of the time 'taken' to fetch a timer value
+//! The tables will have a rough granularity of the precision of the
+//! tick counter. Average time taken is calculated using the fastest
+//! 95% of 10,000 calls, as beyond that the outliers should be ignored.
 //!
 //! ## MacOs aarch64 (MacBook Pro M4 Max Os15.1 rustc 1.84
 //!
 //! The granularity of the clock appears to be 41 or 42 ticks, and the
-//! asm implementation seems to match the std time implementation.
+//! asm implementation seems to match the std time implementation for this precision.
 //!
-//! The average time taken for a call is 3 ticks in release, 9 ticks in debug
+//! For asm, the average time taken for a call is 3 ticks in release, 9 ticks in debug
+//!
+//! For std::time, the average time taken for a call is 8 ticks in
+//! release, 17 ticks in debug. So clearly there is an overhead for
+//! using std::time
 //!
 //! | %age | arch release |   arch debug | std debug    | std release  |
 //! |------|--------------|--------------|--------------|--------------|
-//! | 10   |      0       |      41      |       41     |         0    |
-//! | 25   |      0       |      42      |       42     |         0    |
-//! | 50   |     41       |      42      |       42     |         0    |
-//! | 75   |     41       |      42      |       83     |        41    |
-//! | 90   |     42       |      83      |       83     |        41    |
-//! | 95   |     42       |      83      |       83     |        41    |
-//! | 99   |     42       |      84      |       84     |        42    |
-//! | 100  |  27084       |   11125      |     2166     |      1125    |
+//! | 10   |      0       |       0      |       41     |         0    |
+//! | 25   |      0       |       0      |       42     |         0    |
+//! | 50   |      0       |       0      |       42     |         0    |
+//! | 75   |      0       |      41      |       83     |        41    |
+//! | 90   |     42       |      41      |       83     |        41    |
+//! | 95   |     42       |      41      |       83     |        41    |
+//! | 99   |     42       |      42      |       84     |        42    |
+//! | 100  |  27084       |    2498      |     2166     |      1125    |
 //!
 //! ### MacOs aarch64 std::time release
 //!
@@ -84,6 +103,8 @@
 //! 71, 41
 //! 99, 42
 //! 100, 1125
+//!
+//! average of up to 95 8
 //!
 //! ### MacOs aarch64 std::time debug
 //!
@@ -95,24 +116,25 @@
 //! 99, 125
 //! 100, 2166
 //!
+//! average of up to 95 17
+//!
 //! ### MacOs aarch64 debug
 //!
 //! Percentile distribution
-//! 22, 41
-//! 66, 42
-//! 88, 83
-//! 99, 84
-//! 100, 11125
+//! 52, 0
+//! 68, 41
+//! 99, 42
+//! 100, 2958
 //!
 //! average of up to 95 9
 //!
 //! ### MacOs aarch64 release
 //!
 //! Percentile distribution
-//! 40, 0
-//! 60, 41
+//! 77, 0
+//! 85, 41
 //! 99, 42
-//! 100, 27084
+//! 100, 1500
 //!
 //! average of up to 95 3
 //!
@@ -123,7 +145,8 @@
 //! The granularity of the clock appears to be 2 ticks, and the
 //! asm implementation is better than using the std::time implementation
 //!
-//! The average time taken for a call is 3 ticks in release, 9 ticks in debug
+//! The average time taken for a call is 15 ticks in release, 78 (but
+//! sometimes 66!) ticks in debug
 //!
 //! | %age | arch release |   arch debug | std debug    | std release  |
 //! |------|--------------|--------------|--------------|--------------|
@@ -253,6 +276,7 @@ impl Delta {
     //cp add
     /// Accmulate another delta into this value
     #[inline(always)]
+    #[must_use]
     fn add(self, other: Self) -> Self {
         self.0.wrapping_add(other.0).into()
     }
@@ -452,7 +476,7 @@ impl AccTimer {
     #[inline(always)]
     pub fn exit(&mut self) {
         self.timer.exit();
-        self.acc.add(self.timer.raw());
+        self.acc = self.acc.add(self.timer.raw());
     }
 
     //mp value
@@ -596,7 +620,7 @@ where
     pub fn acc(&mut self) {
         for i in 0..N {
             let v: Delta = self.acc[i].into();
-            v.add(self.trace.trace[i].into());
+            let v = v.add(self.trace.trace[i].into());
             self.acc[i] = v.into();
         }
     }

@@ -2,6 +2,10 @@ use std::collections::HashMap;
 
 use hgl_utils::cpu_timer::{AccTimer, Timer};
 
+fn abs_diff(a: u64, b: u64) -> u64 {
+    ((a as i64) - (b as i64)).abs() as u64
+}
+
 #[test]
 fn test_timer() {
     let mut t0 = Timer::default();
@@ -11,12 +15,90 @@ fn test_timer() {
     t0.exit();
     t1.exit();
 
-    let diff = (t0.value() as i64 - t1.value() as i64).abs();
+    let diff = abs_diff(t0.value(), t1.value());
     dbg!(&t0, &t1);
     assert!(
-        diff < 10,
+        diff < 100,
         "Expecting the difference to be not a lot; this might fail very infrequently"
     );
+
+    t0.clear();
+    assert_eq!(t0.value(), 0, "Value should be 0 at clear");
+}
+
+#[test]
+fn test_acc_timer() {
+    const N: usize = 10_000;
+    let mut t0 = AccTimer::default();
+    let mut t1 = Timer::default();
+    let mut passed = false;
+
+    let mut acc_10x = 0;
+    for _retries in 0..10 {
+        let t_acc_x10 = {
+            for _ in 0..N * 10 {
+                t0.entry();
+                t1.entry();
+                t0.exit();
+            }
+            t0.acc()
+        };
+        t0.clear();
+        let t_acc_10x = {
+            let mut acc = 0;
+            for _ in 0..10 {
+                for _ in 0..N {
+                    t0.entry();
+                    t1.entry();
+                    t0.exit();
+                }
+                acc += t0.acc();
+                t0.clear();
+            }
+            acc
+        };
+
+        assert!(t_acc_10x != 0, "10*N iterations cannot be zero");
+        let diff = abs_diff(t_acc_x10, t_acc_10x);
+        dbg!(diff, t_acc_x10, t_acc_10x);
+        if diff < t_acc_10x * 1 / 10 {
+            passed = true;
+            acc_10x = t_acc_10x;
+            break;
+        }
+    }
+    assert!(
+        passed,
+        "Expected diff to be within 10% in at least one attempt"
+    );
+
+    let mut zeros = 0;
+    let mut outliers = 0;
+    let mut above = 0;
+    for _ in 0..N {
+        t0.clear();
+        t0.entry();
+        t1.entry();
+        t0.exit();
+        let v = t0.value() as usize;
+        if v == 0 {
+            zeros += 1;
+        }
+        if v * 10 * N > acc_10x as usize {
+            above += 1;
+        }
+        if v * 10 * N > 4 * acc_10x as usize {
+            outliers += 1;
+        }
+    }
+
+    dbg!(acc_10x, zeros, above, outliers, (acc_10x as usize) / 10 / N);
+
+    assert!(zeros != N, "Cannot all be zero");
+    assert!(above < N * 9 / 10, "Fewer than 90% should be above average");
+    assert!(above > N * 1 / 10, "More than 10% should be above average");
+    assert!(outliers < N * 1 / 10, "Fewer than 10% should be outliers");
+    assert!(false);
 }
 
 #[test]
@@ -67,6 +149,4 @@ fn test_timer_values() {
     eprintln!("100, {}", d.last().unwrap());
     eprintln!("");
     eprintln!("average of up to 95 {}", sum_to_95 / num_to_95);
-
-    assert!(false);
 }
