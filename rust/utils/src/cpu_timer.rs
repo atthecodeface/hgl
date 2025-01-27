@@ -410,6 +410,54 @@ impl Delta {
 }
 
 //a Architecture-specific get_timer functions
+mod private {
+    use super::Delta;
+    pub(super) trait Arch: Default {
+        type Value: std::fmt::Debug + Default;
+        fn get_timer() -> Self::Value;
+        fn get_delta(_since: &Self::Value) -> Delta;
+        fn delta_and_timer(_since: &mut Self::Value) -> Delta;
+    }
+}
+//tt Arch
+#[allow(private_bounds)]
+pub trait Arch: private::Arch {}
+impl<T> Arch for T where T: private::Arch {}
+#[derive(Default)]
+pub struct Std(());
+#[derive(Default)]
+pub struct Asm(());
+impl private::Arch for Std {
+    type Value = arch_std::Value;
+    #[inline(always)]
+    fn get_timer() -> Self::Value {
+        arch_std::get_timer()
+    }
+    #[inline(always)]
+    fn get_delta(since: &Self::Value) -> Delta {
+        arch_std::get_delta(since)
+    }
+    #[inline(always)]
+    fn delta_and_timer(since: &mut Self::Value) -> Delta {
+        arch_std::delta_and_timer(since)
+    }
+}
+impl private::Arch for Asm {
+    type Value = arch::Value;
+    #[inline(always)]
+    fn get_timer() -> Self::Value {
+        arch::get_timer()
+    }
+    #[inline(always)]
+    fn get_delta(since: &Self::Value) -> Delta {
+        arch::get_delta(since)
+    }
+    #[inline(always)]
+    fn delta_and_timer(since: &mut Self::Value) -> Delta {
+        arch::delta_and_timer(since)
+    }
+}
+
 //fi Standard arch implementation
 mod arch_std {
     use super::Delta;
@@ -526,13 +574,16 @@ mod arch {
 /// println!("That took {} ticks", t.value());
 /// ```
 #[derive(Default, Debug)]
-pub struct Timer {
-    entry: arch::Value,
+pub struct Timer<A: Arch> {
+    entry: A::Value,
     delta: Delta,
 }
 
 //ip Timer
-impl Timer {
+impl<A> Timer<A>
+where
+    A: Arch,
+{
     //mp clear
     /// Clear the timer and accumulated values
     pub fn clear(&mut self) {
@@ -543,21 +594,21 @@ impl Timer {
     /// Record the ticks on entry to a region-to-time
     #[inline(always)]
     pub fn entry(&mut self) {
-        self.entry = arch::get_timer();
+        self.entry = A::get_timer();
     }
 
     //mp delta
     /// Return (without updating) the delta since entry
     #[inline(always)]
     pub fn delta(&mut self) -> u64 {
-        arch::get_delta(&self.entry).into()
+        A::get_delta(&self.entry).into()
     }
 
     //mp exit
     /// Record the ticks on exit from a region-to-time
     #[inline(always)]
     pub fn exit(&mut self) {
-        self.delta = arch::get_delta(&self.entry);
+        self.delta = A::get_delta(&self.entry);
     }
 
     //mp value
@@ -581,13 +632,16 @@ impl Timer {
 /// An timer that accumulates the value for multiple timer entry-exits
 ///
 #[derive(Default, Debug)]
-pub struct AccTimer {
-    timer: Timer,
+pub struct AccTimer<A: Arch> {
+    timer: Timer<A>,
     acc: Delta,
 }
 
 //ip AccTimer
-impl AccTimer {
+impl<A> AccTimer<A>
+where
+    A: Arch,
+{
     //mp clear
     /// Clear the timer and accumulated values
     pub fn clear(&mut self) {
