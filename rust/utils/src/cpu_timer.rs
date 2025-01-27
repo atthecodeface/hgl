@@ -40,7 +40,7 @@
 //!
 //! ```
 //! # use hgl_utils::cpu_timer::Timer;
-//! let mut t = Timer::default();
+//! let mut t = Timer::<true>::default();
 //! t.entry();
 //! // do something!
 //! t.exit();
@@ -56,23 +56,24 @@
 //!
 //! ```
 //! # use hgl_utils::cpu_timer::AccTimer;
-//! let mut t = AccTimer::default();
+//! let mut t = AccTimer::<true>::default();
 //! for i in 0..100 {
 //!     t.entry();
 //!     // do something!
 //!     t.exit();
 //!     println!("Iteration {i} took {} ticks", t.value());
 //! }
-//! println!("That an average of {} ticks", t.acc()/100);
+//! println!("That took an average of {} ticks", t.acc()/100);
 //! ```
 //!
 //! ## Trace
 //!
-//! The [Trace] type supports tracing the execution path through some logic, getting deltas along the way
+//! The [Trace] type supports tracing the execution path through some
+//! logic, getting deltas along the way
 //!
 //! ```
 //! # use hgl_utils::cpu_timer::Trace;
-//! let mut t = Trace::<u32, 3>::default();
+//! let mut t = Trace::<true, u32, 3>::default();
 //! t.entry();
 //!   // do something!
 //! t.next();
@@ -95,7 +96,7 @@
 //! struct MyThing {
 //!     // things ...
 //!     /// For timing (perhaps only if #[cfg(debug_assertions)] )
-//!     acc: AccTrace::<u32,4>,
+//!     acc: AccTrace::<true, u32,4>,
 //! }
 //!
 //! impl MyThing {
@@ -114,7 +115,7 @@
 //! }
 //!
 //! let mut t = MyThing { // ..
-//!     acc: AccTrace::<u32, 4>::default()
+//!     acc: AccTrace::<true, u32, 4>::default()
 //! };
 //! for _ in 0..100 {
 //!     t.do_something_complex();
@@ -279,6 +280,8 @@
 //! 100, 24560
 
 //a Imports
+use std::marker::PhantomData;
+
 //a Constants
 //cp TICKS_PER_US_APPLE_M4
 pub const TICKS_PER_US_APPLE_M4: u64 = 1_000_000_000;
@@ -409,40 +412,64 @@ impl Delta {
     }
 }
 
-//a Architecture-specific get_timer functions
+//a Architecture-specific and Standard get_timer functions
+//mi private
+/// This module is private to seal the Arch trait, which must be
+/// implemented here only.
 mod private {
+    //iu Delta
     use super::Delta;
+    //tp
     pub(super) trait Arch: Default {
+        /// Value returned by the timer
+        ///
+        /// This is stored within timers but is not visible to users
         type Value: std::fmt::Debug + Default;
+
+        //fp get_timer
+        /// Get the current value of the timer
         fn get_timer() -> Self::Value;
+
+        //fp get_delta
+        /// Get the time elapsed since a previous time
         fn get_delta(_since: &Self::Value) -> Delta;
+
+        //fp delta_and_timer
+        /// Get the time elapsed since a previous time and update the time
         fn delta_and_timer(_since: &mut Self::Value) -> Delta;
     }
 }
+
 //tt Arch
+/// Trait provided for architecture-specific timers
+///
+/// This is supported by a single assembler timer and a standard
+/// (std::time) timer
 #[allow(private_bounds)]
 pub trait Arch: private::Arch {}
+
+//ip Arch for T: private::Arch
 impl<T> Arch for T where T: private::Arch {}
+
+//tp IsAsm
+/// Marker type generic on a bool, which has the 'Arch' trait
+/// implemented for it for (true) an assembler architecture specific
+/// timer implementation, and (false) for a std::time implementation
 #[derive(Default)]
-pub struct Std(());
+pub struct IsAsm<const B: bool>();
+
+//tp Asm
+/// Marker type for which IsAsm is implemented for both true and false
 #[derive(Default)]
 pub struct Asm(());
-impl private::Arch for Std {
-    type Value = arch_std::Value;
-    #[inline(always)]
-    fn get_timer() -> Self::Value {
-        arch_std::get_timer()
-    }
-    #[inline(always)]
-    fn get_delta(since: &Self::Value) -> Delta {
-        arch_std::get_delta(since)
-    }
-    #[inline(always)]
-    fn delta_and_timer(since: &mut Self::Value) -> Delta {
-        arch_std::delta_and_timer(since)
-    }
-}
-impl private::Arch for Asm {
+
+//ip Arch for IsAsm<true>
+// Assembler specific implementation of a
+// timer architecture
+//
+// If the architecture does not have an assembler implementation then
+// this will actually be the std::time implementation
+impl private::Arch for IsAsm<true> {
     type Value = arch::Value;
     #[inline(always)]
     fn get_timer() -> Self::Value {
@@ -458,7 +485,27 @@ impl private::Arch for Asm {
     }
 }
 
-//fi Standard arch implementation
+//ip Arch for IsAsm<false>
+// std::time implementation of a
+// timer architecture
+impl private::Arch for IsAsm<false> {
+    type Value = arch_std::Value;
+    #[inline(always)]
+    fn get_timer() -> Self::Value {
+        arch_std::get_timer()
+    }
+    #[inline(always)]
+    fn get_delta(since: &Self::Value) -> Delta {
+        arch_std::get_delta(since)
+    }
+    #[inline(always)]
+    fn delta_and_timer(since: &mut Self::Value) -> Delta {
+        arch_std::delta_and_timer(since)
+    }
+}
+
+//a Architecture specific and standard timer implementation modules
+//mi Standard architecture implementation of a timer
 mod arch_std {
     use super::Delta;
     #[derive(Debug, Clone, Copy)]
@@ -485,7 +532,7 @@ mod arch_std {
     }
 }
 
-//fi get_timer for OTHER architectures
+//mi get_timer for OTHER architectures
 #[cfg(not(any(target_arch = "aarch64", target_arch = "x86_64",)))]
 use arch_std as arch;
 
@@ -567,22 +614,25 @@ mod arch {
 ///
 /// ```
 /// # use hgl_utils::cpu_timer::Timer;
-/// let mut t = Timer::default();
+/// let mut t = Timer::<true>::default();
 /// t.entry();
 /// // do something!
 /// t.exit();
 /// println!("That took {} ticks", t.value());
 /// ```
 #[derive(Default, Debug)]
-pub struct Timer<A: Arch> {
-    entry: A::Value,
+pub struct Timer<const S: bool>
+where
+    IsAsm<S>: Arch,
+{
+    entry: <IsAsm<S> as private::Arch>::Value,
     delta: Delta,
 }
 
 //ip Timer
-impl<A> Timer<A>
+impl<const S: bool> Timer<S>
 where
-    A: Arch,
+    IsAsm<S>: Arch,
 {
     //mp clear
     /// Clear the timer and accumulated values
@@ -594,21 +644,21 @@ where
     /// Record the ticks on entry to a region-to-time
     #[inline(always)]
     pub fn entry(&mut self) {
-        self.entry = A::get_timer();
+        self.entry = <IsAsm<S> as private::Arch>::get_timer();
     }
 
     //mp delta
     /// Return (without updating) the delta since entry
     #[inline(always)]
     pub fn delta(&mut self) -> u64 {
-        A::get_delta(&self.entry).into()
+        <IsAsm<S> as private::Arch>::get_delta(&self.entry).into()
     }
 
     //mp exit
     /// Record the ticks on exit from a region-to-time
     #[inline(always)]
     pub fn exit(&mut self) {
-        self.delta = A::get_delta(&self.entry);
+        self.delta = <IsAsm<S> as private::Arch>::get_delta(&self.entry);
     }
 
     //mp value
@@ -632,15 +682,18 @@ where
 /// An timer that accumulates the value for multiple timer entry-exits
 ///
 #[derive(Default, Debug)]
-pub struct AccTimer<A: Arch> {
-    timer: Timer<A>,
+pub struct AccTimer<const S: bool>
+where
+    IsAsm<S>: Arch,
+{
+    timer: Timer<S>,
     acc: Delta,
 }
 
 //ip AccTimer
-impl<A> AccTimer<A>
+impl<const S: bool> AccTimer<S>
 where
-    A: Arch,
+    IsAsm<S>: Arch,
 {
     //mp clear
     /// Clear the timer and accumulated values
@@ -692,20 +745,24 @@ where
 ///
 /// A Trace can be generated for any N, for T in u8, u16, u32, u64, u128 and usize
 #[derive(Debug)]
-pub struct Trace<T: TraceValue, const N: usize> {
-    last: arch::Value,
+pub struct Trace<const S: bool, T: TraceValue, const N: usize>
+where
+    IsAsm<S>: Arch,
+{
+    last: <IsAsm<S> as private::Arch>::Value,
     index: usize,
     trace: [T; N],
 }
 
 //ip Default for Trace
-impl<T, const N: usize> std::default::Default for Trace<T, N>
+impl<const S: bool, T, const N: usize> std::default::Default for Trace<S, T, N>
 where
+    IsAsm<S>: Arch,
     T: TraceValue,
     [T; N]: Default,
 {
     fn default() -> Self {
-        let last = arch::Value::default();
+        let last = <IsAsm<S> as private::Arch>::Value::default();
         let index = 0;
         let trace = <[T; N]>::default();
         Self { last, index, trace }
@@ -713,8 +770,9 @@ where
 }
 
 //ip Trace
-impl<T, const N: usize> Trace<T, N>
+impl<const S: bool, T, const N: usize> Trace<S, T, N>
 where
+    IsAsm<S>: Arch,
     T: TraceValue,
 {
     //mp clear
@@ -727,7 +785,7 @@ where
     /// Record the ticks on entry to a region-to-time
     #[inline(always)]
     pub fn entry(&mut self) {
-        self.last = arch::get_timer();
+        self.last = <IsAsm<S> as private::Arch>::get_timer();
         self.index = 0;
     }
 
@@ -736,7 +794,7 @@ where
     #[inline(always)]
     pub fn next(&mut self) {
         if self.index < N {
-            let delta = arch::delta_and_timer(&mut self.last);
+            let delta = <IsAsm<S> as private::Arch>::delta_and_timer(&mut self.last);
             self.trace[self.index] = delta.into();
             self.index += 1;
         }
@@ -765,22 +823,26 @@ where
 ///
 /// An AccVec can be generated for any N, for T in u8, u16, u32, u64, u128 and usize
 #[derive(Debug)]
-pub struct AccVec<T: TraceValue, C: TraceCount, const N: usize> {
-    entry: arch::Value,
+pub struct AccVec<const S: bool, T: TraceValue, C: TraceCount, const N: usize>
+where
+    IsAsm<S>: Arch,
+{
+    entry: <IsAsm<S> as private::Arch>::Value,
     accs: [T; N],
     cnts: [C; N],
 }
 
 //ip Default for AccVec
-impl<T, C, const N: usize> std::default::Default for AccVec<T, C, N>
+impl<const S: bool, T, C, const N: usize> std::default::Default for AccVec<S, T, C, N>
 where
+    IsAsm<S>: Arch,
     T: TraceValue,
     C: TraceCount,
     [T; N]: Default,
     [C; N]: Default,
 {
     fn default() -> Self {
-        let entry = arch::Value::default();
+        let entry = <IsAsm<S> as private::Arch>::Value::default();
         let accs = <[T; N]>::default();
         let cnts = <[C; N]>::default();
         Self { entry, accs, cnts }
@@ -788,8 +850,9 @@ where
 }
 
 //ip AccVec
-impl<T, C, const N: usize> AccVec<T, C, N>
+impl<const S: bool, T, C, const N: usize> AccVec<S, T, C, N>
 where
+    IsAsm<S>: Arch,
     T: TraceValue,
     C: TraceCount,
 {
@@ -803,7 +866,7 @@ where
     /// Record the ticks on entry to a region-to-time
     #[inline(always)]
     pub fn entry(&mut self) {
-        self.entry = arch::get_timer();
+        self.entry = <IsAsm<S> as private::Arch>::get_timer();
     }
 
     //mp acc_n
@@ -811,7 +874,7 @@ where
     #[inline(always)]
     pub fn acc_n(&mut self, index: usize) {
         if index < N {
-            let delta = arch::get_delta(&self.entry);
+            let delta = <IsAsm<S> as private::Arch>::get_delta(&self.entry);
             let acc = delta.add(self.accs[index].into());
             self.accs[index] = acc.into();
             self.cnts[index].sat_inc();
@@ -833,14 +896,18 @@ where
 
 //tp AccTrace
 #[derive(Debug)]
-pub struct AccTrace<T: TraceValue, const N: usize> {
-    trace: Trace<T, N>,
+pub struct AccTrace<const S: bool, T: TraceValue, const N: usize>
+where
+    IsAsm<S>: Arch,
+{
+    trace: Trace<S, T, N>,
     acc: [T; N],
 }
 
 //ip Default for AccTrace
-impl<T, const N: usize> std::default::Default for AccTrace<T, N>
+impl<const S: bool, T, const N: usize> std::default::Default for AccTrace<S, T, N>
 where
+    IsAsm<S>: Arch,
     T: TraceValue,
     [T; N]: Default,
 {
@@ -852,8 +919,9 @@ where
 }
 
 //ip AccTrace
-impl<T, const N: usize> AccTrace<T, N>
+impl<const S: bool, T, const N: usize> AccTrace<S, T, N>
 where
+    IsAsm<S>: Arch,
     T: TraceValue,
 {
     //mp clear

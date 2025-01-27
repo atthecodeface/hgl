@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use hgl_utils::cpu_timer::{AccTimer, AccTrace, Timer, Trace};
+const S: bool = true;
 
 //fp abs_diff
 fn abs_diff(a: u64, b: u64) -> u64 {
@@ -40,8 +41,8 @@ fn check_data(data: &[u32]) -> Result<(), String> {
 //fp test_timer
 #[test]
 fn test_timer() {
-    let mut t0 = Timer::default();
-    let mut t1 = Timer::default();
+    let mut t0 = Timer::<true>::default();
+    let mut t1 = Timer::<true>::default();
     t0.entry();
     t1.entry();
     t0.exit();
@@ -60,7 +61,7 @@ fn test_timer() {
 
 //fp do_work
 fn do_work() -> () {
-    let mut t = Timer::default();
+    let mut t = Timer::<S>::default();
     for _ in 0..100 {
         t.entry();
         t.exit();
@@ -68,10 +69,10 @@ fn do_work() -> () {
 }
 
 //fp trace_work
-fn trace_work(t: &mut Trace<u32, 16>) -> () {
+fn trace_work(t: &mut Trace<S, u32, 16>) -> () {
     t.entry();
     for i in 0..16 {
-        let mut ti = Timer::default();
+        let mut ti = Timer::<S>::default();
         for _ in 0..100 * (i + 1) {
             ti.entry();
             ti.exit();
@@ -81,11 +82,11 @@ fn trace_work(t: &mut Trace<u32, 16>) -> () {
 }
 
 //fp acc_trace_work
-fn acc_trace_work(t: &mut AccTrace<u32, 16>) -> () {
+fn acc_trace_work(t: &mut AccTrace<S, u32, 16>) -> () {
     for acc in 0..10 {
         t.entry();
         for i in 0..16 {
-            let mut ti = Timer::default();
+            let mut ti = Timer::<S>::default();
             for _ in 0..100 * (i + 1) {
                 ti.entry();
                 ti.exit();
@@ -101,7 +102,7 @@ fn acc_trace_work(t: &mut AccTrace<u32, 16>) -> () {
 fn test_trace() -> Result<(), String> {
     let mut result = Ok(());
     for _retries in 0..10 {
-        let mut t0 = Trace::<u32, 16>::default();
+        let mut t0 = Trace::<S, u32, 16>::default();
         trace_work(&mut t0);
         let mut samples: Vec<u32> = vec![];
         for (i, t) in t0.trace().iter().enumerate() {
@@ -120,7 +121,7 @@ fn test_trace() -> Result<(), String> {
 fn test_acc_trace() -> Result<(), String> {
     let mut result = Ok(());
     for _retries in 0..10 {
-        let mut t0 = AccTrace::<u32, 16>::default();
+        let mut t0 = AccTrace::<S, u32, 16>::default();
         acc_trace_work(&mut t0);
         let mut samples: Vec<u32> = vec![];
         for (i, t) in t0.acc_trace().iter().enumerate() {
@@ -135,7 +136,7 @@ fn test_acc_trace() -> Result<(), String> {
         return result;
     }
     for _retries in 0..10 {
-        let mut t0 = AccTrace::<u32, 16>::default();
+        let mut t0 = AccTrace::<S, u32, 16>::default();
         acc_trace_work(&mut t0);
         let mut samples: Vec<u32> = vec![];
         for (i, t) in t0.last_trace().iter().enumerate() {
@@ -153,7 +154,7 @@ fn test_acc_trace() -> Result<(), String> {
 #[test]
 fn test_acc_timer() {
     const N: usize = 10_000;
-    let mut t0 = AccTimer::default();
+    let mut t0 = AccTimer::<S>::default();
     let mut passed = false;
 
     let mut acc_10x = 0;
@@ -229,7 +230,7 @@ fn test_timer_values() {
     // Outputs the distribuion of delays
 
     let mut record = vec![0u64; 100_000];
-    let mut t0 = Timer::default();
+    let mut t0 = Timer::<S>::default();
     t0.entry();
     for i in 0..record.len() {
         record[i] = t0.delta();

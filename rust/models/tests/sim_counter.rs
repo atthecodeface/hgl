@@ -1,6 +1,7 @@
 use hgl_models::Counter;
 use hgl_sim::prelude::sim::*;
-use hgl_utils::cpu_timer::AccTimer;
+
+type AccTimer = hgl_utils::cpu_timer::AccTimer<true>;
 
 #[test]
 fn sim_counter() -> Result<(), String> {

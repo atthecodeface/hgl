@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 # These are directory names
+default_members = [ "indexed_vec", "utils", "sim", "models"]
 members = [ "indexed_vec", "utils", "sim", "models"]
 
 [package]
