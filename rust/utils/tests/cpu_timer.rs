@@ -21,10 +21,14 @@ fn test_timer() {
 
 #[test]
 fn test_timer_values() {
-    let mut record = vec![0u64; 1000];
+    // Simply record the time taken (apparenlty) by Timer::delta()
+    //
+    // Outputs the distribuion of delays
+
+    let mut record = vec![0u64; 100_000];
     let mut t0 = Timer::default();
     t0.entry();
-    for i in 0..1000 {
+    for i in 0..record.len() {
         record[i] = t0.delta();
     }
 
@@ -35,6 +39,26 @@ fn test_timer_values() {
         *deltas.entry(d).or_default() += 1;
     }
 
-    dbg!(&deltas);
+    let mut d: Vec<u64> = deltas.keys().copied().collect();
+    d.sort();
+    eprintln!("Complete delta distribution");
+    for d in &d {
+        eprintln!("{d} {}", deltas[d]);
+    }
+
+    eprintln!("Percentile distribution");
+    let mut p = 0;
+    let mut acc = 0;
+    let n = record.len();
+    for d in &d {
+        acc += deltas[d];
+        let acc_p = (acc * 100) / n;
+        if acc_p > p {
+            p = acc_p;
+            eprintln!("{acc_p}, {d}");
+        }
+    }
+    eprintln!("100, {}", d.last().unwrap());
+
     assert!(false);
 }

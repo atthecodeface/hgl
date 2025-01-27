@@ -59,6 +59,18 @@
 //! benefit for using the timer access compared to the std::time::*
 //! variants
 //!
+//! ## MacOs x86_64
+//!
+//! Percentile distribution
+//! 4, 62
+//! 22, 64
+//! 55, 66
+//! 81, 68
+//! 92, 70
+//! 96, 72
+//! 98, 74
+//! 99, 76
+//! 100, 59500
 
 //a Imports
 //a Constants
@@ -194,16 +206,14 @@ mod arch {
     pub type Value = u64;
     #[inline(always)]
     pub fn get_timer() -> Value {
-        let lo: u32;
-        let hi: u32;
+        let lo: u64;
+        let hi: u64;
         unsafe {
-            asm!(
-                "rdtsc",
-                lo = out(a) lo,
-                hi = out(d) hi,
+            asm!("rdtsc", lateout("eax") lo, lateout("edx") hi,
+              options(nomem, nostack)
             );
         }
-        ((hi as u64) << 32) | (lo as u64)
+        hi << 32 | lo
     }
     #[inline(always)]
     pub fn get_delta(since: &Value) -> Delta {
