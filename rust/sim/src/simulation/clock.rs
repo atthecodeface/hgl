@@ -279,7 +279,7 @@ impl ClockArray {
                 }
             }
         }
-        let mut blah: Vec<(InstanceHandle, SimEdgeMask)> = blah.into_iter().collect();
+        let blah: Vec<(InstanceHandle, SimEdgeMask)> = blah.into_iter().collect();
         self.instance_edges.insert(*ie, blah);
     }
 

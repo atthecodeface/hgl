@@ -133,14 +133,14 @@ where
     //ap iter
     /// Get a iterator over references to our values.
     #[inline]
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item = &'a T> {
+    pub fn iter(&self) -> impl Iterator<Item = &T> {
         self.slice.iter()
     }
 
     //ap enumerate
     /// Get an interator over references with an item of `(I, &T)`
     #[inline(always)]
-    pub fn iter_enumerated<'a>(&'a self) -> impl Iterator<Item = (I, &'a T)> {
+    pub fn iter_enumerated(&self) -> impl Iterator<Item = (I, &T)> {
         self.slice
             .iter()
             .enumerate()

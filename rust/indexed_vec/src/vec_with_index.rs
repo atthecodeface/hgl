@@ -87,7 +87,7 @@ where
 }
 
 //ip Deref for VecWithIndex
-impl<'a, K, H, D> std::ops::Deref for VecWithIndex<K, H, D>
+impl<K, H, D> std::ops::Deref for VecWithIndex<K, H, D>
 where
     K: IndexKey,
     H: Idx,
@@ -100,7 +100,7 @@ where
 }
 
 //ip AsRef<[D]> for VecWithIndex
-impl<'a, K, H, D> AsRef<[D]> for VecWithIndex<K, H, D>
+impl<K, H, D> AsRef<[D]> for VecWithIndex<K, H, D>
 where
     K: IndexKey,
     H: Idx,
@@ -112,7 +112,7 @@ where
 }
 
 //ip VecWithIndex
-impl<'a, K, H, D> VecWithIndex<K, H, D>
+impl<K, H, D> VecWithIndex<K, H, D>
 where
     K: IndexKey,
     H: Idx,

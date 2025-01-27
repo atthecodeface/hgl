@@ -1,5 +1,5 @@
 pub mod sim {
-    pub use crate::simulation::Simulation;
+    pub use crate::simulation::{Clock, Simulation};
     pub use crate::traits::{Component, Simulatable};
     pub use crate::traits::{IsBv, SimArray, SimBit, SimBv, SimStruct, SimValue, SimValueObject};
     pub use crate::value_types::{Bit, Bv, BvN};

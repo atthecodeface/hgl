@@ -12,7 +12,10 @@
 //! - [ ] x86_64 (implemented, not tested)
 //! - [ ] x86    
 //! - [x] aarch64
-//! - [x] wasm32
+//! - [ ] wasm32
+//!
+//! Nonsupported architectures resort to the [std::time::Instant]
+//! 'now' method
 //!
 //! # Types
 //!
@@ -51,48 +54,46 @@
 //! ```
 
 //a Imports
-use std::arch::asm;
-
 //a Constants
 //cp TICKS_PER_US_APPLE_M4
 pub const TICKS_PER_US_APPLE_M4: u64 = 1_000_000_000;
 
-//a Value
-//ti Value
+//a Delta
+//ti Delta
 /// A private type that is returned by get_timer, and which can be
 /// used for all the timer calculations
 ///
 /// This is used to abstract the internals from the public API
 #[repr(transparent)]
 #[derive(Debug, Default, Clone, Copy)]
-struct Value(u64);
+struct Delta(u64);
 
-//ip From<u64> for Value
-impl From<u64> for Value {
+//ip From<u64> for Delta
+impl From<u64> for Delta {
     #[inline(always)]
     fn from(t: u64) -> Self {
         Self(t)
     }
 }
 
-//ip From<Value> for u64
-impl From<Value> for u64 {
+//ip From<Delta> for u64
+impl From<Delta> for u64 {
     #[inline(always)]
-    fn from(v: Value) -> Self {
+    fn from(v: Delta) -> Self {
         v.0
     }
 }
 
-//ip From<u8/u16/u32/u128/usize> for Value and back - needs u64 elsewhere
+//ip From<u8/u16/u32/u128/usize> for Delta and back - needs u64 elsewhere
 macro_rules! from_into_value {
     {$t:ty} => {
-        impl From<Value> for $t {
+        impl From<Delta> for $t {
             #[inline(always)]
-            fn from(v: Value) -> Self {
+            fn from(v: Delta) -> Self {
                 v.0 as $t
             }
         }
-        impl From<$t> for Value {
+        impl From<$t> for Delta {
             #[inline(always)]
             fn from(t: $t) -> Self {
                 (t as u64).into()
@@ -106,15 +107,8 @@ from_into_value!(u32);
 from_into_value!(u128);
 from_into_value!(usize);
 
-//ip Value
-impl Value {
-    //cp delta
-    /// Calculate the delta between this and a previous value
-    #[inline(always)]
-    fn delta(self, prev: Self) -> Self {
-        self.0.wrapping_sub(prev.0).into()
-    }
-
+//ip Delta
+impl Delta {
     //cp add
     /// Accmulate another delta into this value
     #[inline(always)]
@@ -126,46 +120,90 @@ impl Value {
 //a Architecture-specific get_timer functions
 //fi get_timer for OTHER architectures
 #[cfg(not(any(target_arch = "aarch64", target_arch = "x86_64",)))]
-#[inline(always)]
-fn get_timer() -> Value {
-    0_u64.into()
+mod arch {
+    use super::Delta;
+    pub type Value = std::time::Instant;
+    #[inline(always)]
+    pub fn get_timer() -> Value {
+        std::time::Instant::now()
+    }
+    #[inline(always)]
+    pub fn get_delta(since: &Value) -> Delta {
+        since.elapsed().as_nanos().into()
+    }
+    #[inline(always)]
+    pub fn delta_and_timer(since: &mut Value) -> Delta {
+        let now = std::time::Instant::now();
+        let delta = now - *since;
+        *since = now;
+        delta.elapsed().as_nanos().into()
+    }
 }
 
 //fi get_timer for Aarch64
 /// Known to work on Apple M4 (MacbookPro 2024)
 #[cfg(target_arch = "aarch64")]
-#[inline(always)]
-fn get_timer() -> Value {
-    let timer: u64;
-    unsafe {
-        asm!(
-            "isb
-            mrs {timer}, cntvct_el0",
-            timer = out(reg) timer,
-        );
+mod arch {
+    use super::Delta;
+    use std::arch::asm;
+    pub type Value = u64;
+    #[inline(always)]
+    pub fn get_timer() -> u64 {
+        let timer: u64;
+        unsafe {
+            asm!(
+                "isb
+                mrs {timer}, cntvct_el0",
+                timer = out(reg) timer,
+            );
+        }
+        timer
     }
-    timer.into()
+    #[inline(always)]
+    pub fn get_delta(since: &Value) -> Delta {
+        get_timer().wrapping_sub(*since).into()
+    }
+    #[inline(always)]
+    pub fn delta_and_timer(since: &mut Value) -> Delta {
+        let now = get_timer();
+        let delta = now.wrapping_sub(*since).into();
+        *since = now;
+        delta
+    }
 }
 
 //fi get_timer for x86_64
 /// Not tested yet
 #[cfg(target_arch = "x86_64")]
-#[inline(always)]
-fn get_timer() -> Value {
+mod arch {
+    use super::Delta;
     use std::arch::asm;
-    let lo: u32;
-    let hi: u32;
-    unsafe {
-        asm!(
-            "rdtsc",
-            lo = out(a) lo,
-            hi = out(d) hi,
-        );
+    pub type Value = u64;
+    #[inline(always)]
+    pub fn get_timer() -> Value {
+        let lo: u32;
+        let hi: u32;
+        unsafe {
+            asm!(
+                "rdtsc",
+                lo = out(a) lo,
+                hi = out(d) hi,
+            );
+        }
+        ((hi as u64) << 32) | (lo as u64)
     }
-    let timer = ((hi as u64) << 32) | (lo as u64);
-    timer.into()
+    #[inline(always)]
+    pub fn get_delta(since: &Value) -> Delta {
+        get_timer().wrapping_sub(*since).into()
+    }
+    #[inline(always)]
+    pub fn delta_and_timer(since: &mut Value) -> Delta {
+        let now = get_timer();
+        let delta = now.wrapping_sub(*since).into();
+        *since = now;
+        delta
+    }
 }
-
 //a Timer
 //tp Timer
 /// A timer that uses the underlying CPU clock ticks to generate
@@ -190,8 +228,8 @@ fn get_timer() -> Value {
 /// ```
 #[derive(Default, Debug)]
 pub struct Timer {
-    entry: Value,
-    delta: Value,
+    entry: arch::Value,
+    delta: Delta,
 }
 
 //ip Timer
@@ -206,15 +244,14 @@ impl Timer {
     /// Record the ticks on entry to a region-to-time
     #[inline(always)]
     pub fn entry(&mut self) {
-        self.entry = get_timer();
+        self.entry = arch::get_timer();
     }
 
     //mp exit
     /// Record the ticks on exit from a region-to-time
     #[inline(always)]
     pub fn exit(&mut self) {
-        let now = get_timer();
-        self.delta = now.delta(self.entry);
+        self.delta = arch::get_delta(&self.entry);
     }
 
     //mp value
@@ -228,7 +265,7 @@ impl Timer {
     //mi raw
     /// Return the internal value for other methods in this library
     #[inline(always)]
-    fn raw(&self) -> Value {
+    fn raw(&self) -> Delta {
         self.delta
     }
 }
@@ -240,7 +277,7 @@ impl Timer {
 #[derive(Default, Debug)]
 pub struct AccTimer {
     timer: Timer,
-    acc: Value,
+    acc: Delta,
 }
 
 //ip AccTimer
@@ -286,9 +323,9 @@ impl AccTimer {
 //tt TraceValue
 /// A value that can be stored in a Trace; this is implemented for u8,
 /// u16, u32, u64 and usize
-// Note that the type 'Value' is private
+// Note that the type 'Delta' is private
 #[allow(private_bounds)]
-pub trait TraceValue: Default + Copy + From<Value> + Into<Value> {}
+pub trait TraceValue: Default + Copy + From<Delta> + Into<Delta> {}
 
 //ip TraceValue for u8/u16/u32/u64/usize
 impl TraceValue for u8 {}
@@ -300,7 +337,7 @@ impl TraceValue for usize {}
 //tp Trace
 #[derive(Debug)]
 pub struct Trace<T: TraceValue, const N: usize> {
-    last: Value,
+    last: arch::Value,
     index: usize,
     trace: [T; N],
 }
@@ -312,7 +349,7 @@ where
     [T; N]: Default,
 {
     fn default() -> Self {
-        let last = Value::default();
+        let last = arch::Value::default();
         let index = 0;
         let trace = <[T; N]>::default();
         Self { last, index, trace }
@@ -334,7 +371,7 @@ where
     /// Record the ticks on entry to a region-to-time
     #[inline(always)]
     pub fn entry(&mut self) {
-        self.last = get_timer();
+        self.last = arch::get_timer();
         self.index = 0;
     }
 
@@ -343,10 +380,9 @@ where
     #[inline(always)]
     pub fn next(&mut self) {
         if self.index < N {
-            let t = get_timer();
-            self.trace[self.index] = t.delta(self.last).into();
+            let delta = arch::delta_and_timer(&mut self.last);
+            self.trace[self.index] = delta.into();
             self.index += 1;
-            self.last = t;
         }
     }
 
@@ -407,7 +443,7 @@ where
     /// Accumulate the current trace into the accumulated trace
     pub fn acc(&mut self) {
         for i in 0..N {
-            let v: Value = self.acc[i].into();
+            let v: Delta = self.acc[i].into();
             v.add(self.trace.trace[i].into());
             self.acc[i] = v.into();
         }
