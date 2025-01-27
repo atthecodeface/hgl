@@ -59,10 +59,12 @@
 //!
 //! The tables will have a rough granularity of the time 'taken' to fetch a timer value
 //!
-//! ## MacOs aarch64 (Macbook Pro M4 Max Os15.1 rustc 1.84
+//! ## MacOs aarch64 (MacBook Pro M4 Max Os15.1 rustc 1.84
 //!
 //! The granularity of the clock appears to be 41 or 42 ticks, and the
 //! asm implementation seems to match the std time implementation.
+//!
+//! The average time taken for a call is 3 ticks in release, 9 ticks in debug
 //!
 //! | %age | arch release |   arch debug | std debug    | std release  |
 //! |------|--------------|--------------|--------------|--------------|
@@ -102,6 +104,8 @@
 //! 99, 84
 //! 100, 11125
 //!
+//! average of up to 95 9
+//!
 //! ### MacOs aarch64 release
 //!
 //! Percentile distribution
@@ -110,9 +114,36 @@
 //! 99, 42
 //! 100, 27084
 //!
-//! ## MacOs x86_64 debug
+//! average of up to 95 3
+//!
+//! ## MacOs x86_64
 //!
 //! MacBook Pro 2018 Os 15.0 rustc 1.84 2.2GHz i7
+//!
+//! The granularity of the clock appears to be 2 ticks, and the
+//! asm implementation is better than using the std::time implementation
+//!
+//! | %age | arch release |   arch debug | std debug    | std release  |
+//! |------|--------------|--------------|--------------|--------------|
+//! | 10   |     12       |      62      |       72     |        38    |
+//! | 25   |     12       |      64      |       74     |        38    |
+//! | 50   |     12       |      64      |       79     |        39    |
+//! | 75   |     14       |      66      |       81     |        39    |
+//! | 90   |     14       |      68      |       83     |        39    |
+//! | 95   |     14       |      70      |       83     |        40    |
+//! | 99   |     16       |      82      |      132     |        41    |
+//! | 100  |  42918       |   65262      |    17101     |     24560    |
+//!
+//!
+//! ### MacOs x86_64 release
+//!
+//! Percentile distribution
+//! 5, 12
+//! 73, 14
+//! 99, 16
+//! 100, 42918
+//!
+//! ### MacOs x86_64 debug
 //!
 //! Percentile distribution
 //! 4, 62
@@ -122,59 +153,40 @@
 //! 92, 70
 //! 96, 72
 //! 98, 74
-//! 99, 76
-//! 100, 59500
-
-x86_64 release
-    
-Percentile distribution
-5, 12
-73, 14
-99, 16
-100, 42918
-
-x86_64 debug
-
-Percentile distribution
-4, 62
-22, 64
-55, 66
-81, 68
-92, 70
-96, 72
-98, 74
-99, 82
-100, 65262    
-
-std debug 
-Percentile distribution
-1, 70
-4, 71
-9, 72
-15, 73
-22, 74
-28, 75
-34, 76
-40, 77
-45, 78
-50, 79
-56, 80
-66, 81
-79, 82
-90, 83
-96, 84
-98, 85
-99, 132
-    100, 17101
-
-    std release
-    Percentile distribution
-3, 37
-44, 38
-92, 39
-96, 40
-99, 41
-100, 24560
+//! 99, 82
+//! 100, 65262    
+//!
+//! ### MacOs std::time debug
+//!
+//! Percentile distribution
+//! 1, 70
+//! 4, 71
+//! 9, 72
+//! 15, 73
+//! 22, 74
+//! 28, 75
+//! 34, 76
+//! 40, 77
+//! 45, 78
+//! 50, 79
+//! 56, 80
+//! 66, 81
+//! 79, 82
+//! 90, 83
+//! 96, 84
+//! 98, 85
+//! 99, 132
+//! 100, 17101
+//!
+//! ### MacOs std::time release
+//!
+//! Percentile distribution
+//! 3, 37
+//! 44, 38
+//! 92, 39
+//! 96, 40
+//! 99, 41
+//! 100, 24560
 
 //a Imports
 //a Constants

@@ -49,6 +49,8 @@ fn test_timer_values() {
     eprintln!("Percentile distribution");
     let mut p = 0;
     let mut acc = 0;
+    let mut sum_to_95 = 0;
+    let mut num_to_95 = 0;
     let n = record.len();
     for d in &d {
         acc += deltas[d];
@@ -57,8 +59,14 @@ fn test_timer_values() {
             p = acc_p;
             eprintln!("{acc_p}, {d}");
         }
+        if acc_p < 95 {
+            sum_to_95 += (*d as usize) * deltas[d];
+            num_to_95 += deltas[d];
+        }
     }
     eprintln!("100, {}", d.last().unwrap());
+    eprintln!("");
+    eprintln!("average of up to 95 {}", sum_to_95 / num_to_95);
 
     assert!(false);
 }
