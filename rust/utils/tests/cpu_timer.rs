@@ -1,11 +1,43 @@
 use std::collections::HashMap;
 
-use hgl_utils::cpu_timer::{AccTimer, Timer};
+use hgl_utils::cpu_timer::{AccTimer, AccTrace, Timer, Trace};
 
+//fp abs_diff
 fn abs_diff(a: u64, b: u64) -> u64 {
     ((a as i64) - (b as i64)).abs() as u64
 }
 
+//fp check_data
+fn check_data(data: &[u32]) -> Result<(), String> {
+    let n = data.len() as u64;
+    let mut acc = 0;
+    for d in data {
+        acc += (*d) as u64;
+    }
+    let mut zeros = 0;
+    let mut outliers = 0;
+    for d in data {
+        let v = ((*d) as u64) * n;
+        if v == 0 {
+            zeros += 1;
+        }
+        if v < acc * 80 / 100 {
+            outliers += 1;
+        }
+        if v > acc * 120 / 100 {
+            outliers += 1;
+        }
+    }
+    if zeros > 0 {
+        Err(format!("Too many zeros {zeros}"))
+    } else if outliers > 1 {
+        Err(format!("More than one outliers {outliers}"))
+    } else {
+        Ok(())
+    }
+}
+
+//fp test_timer
 #[test]
 fn test_timer() {
     let mut t0 = Timer::default();
@@ -26,6 +58,7 @@ fn test_timer() {
     assert_eq!(t0.value(), 0, "Value should be 0 at clear");
 }
 
+//fp do_work
 fn do_work() -> () {
     let mut t = Timer::default();
     for _ in 0..100 {
@@ -34,6 +67,89 @@ fn do_work() -> () {
     }
 }
 
+//fp trace_work
+fn trace_work(t: &mut Trace<u32, 16>) -> () {
+    t.entry();
+    for i in 0..16 {
+        let mut ti = Timer::default();
+        for _ in 0..100 * (i + 1) {
+            ti.entry();
+            ti.exit();
+        }
+        t.next();
+    }
+}
+
+//fp acc_trace_work
+fn acc_trace_work(t: &mut AccTrace<u32, 16>) -> () {
+    for acc in 0..10 {
+        t.entry();
+        for i in 0..16 {
+            let mut ti = Timer::default();
+            for _ in 0..100 * (i + 1) {
+                ti.entry();
+                ti.exit();
+            }
+            t.next();
+        }
+        t.acc();
+    }
+}
+
+//fp test_trace
+#[test]
+fn test_trace() -> Result<(), String> {
+    let mut result = Ok(());
+    for _retries in 0..10 {
+        let mut t0 = Trace::<u32, 16>::default();
+        trace_work(&mut t0);
+        let mut samples: Vec<u32> = vec![];
+        for (i, t) in t0.values().iter().enumerate() {
+            samples.push(t / (i + 1) as u32);
+        }
+        result = check_data(&samples);
+        if result.is_ok() {
+            break;
+        }
+    }
+    result
+}
+
+//fp test_acc_trace
+#[test]
+fn test_acc_trace() -> Result<(), String> {
+    let mut result = Ok(());
+    for _retries in 0..10 {
+        let mut t0 = AccTrace::<u32, 16>::default();
+        acc_trace_work(&mut t0);
+        let mut samples: Vec<u32> = vec![];
+        for (i, t) in t0.acc_trace().iter().enumerate() {
+            samples.push(t / (i + 1) as u32);
+        }
+        result = check_data(&samples);
+        if result.is_ok() {
+            break;
+        }
+    }
+    if result.is_err() {
+        return result;
+    }
+    for _retries in 0..10 {
+        let mut t0 = AccTrace::<u32, 16>::default();
+        acc_trace_work(&mut t0);
+        let mut samples: Vec<u32> = vec![];
+        for (i, t) in t0.last_trace().iter().enumerate() {
+            samples.push(t / (i + 1) as u32);
+        }
+        result = check_data(&samples);
+        if result.is_ok() {
+            break;
+        }
+    }
+    result
+}
+
+//fp test_acc_timer
 #[test]
 fn test_acc_timer() {
     const N: usize = 10_000;
@@ -96,14 +212,14 @@ fn test_acc_timer() {
         if v * 10 * N > acc_10x as usize * 2 {
             outliers += 1;
         }
-        dbg!(v);
     }
 
     dbg!(acc_10x, zeros, outliers, (acc_10x as usize) / 10 / N);
 
     assert!(zeros != N, "Cannot all be zero");
     assert!(outliers < N * 1 / 10, "Fewer than 10% should be outliers");
-    assert!(false);
+
+    // assert!(false);
 }
 
 #[test]
