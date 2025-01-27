@@ -9,8 +9,8 @@
 //!
 //! # CPU support (for non-experimental Rustc target architectures)
 //!
-//! - [ ] x86_64 (implemented, not tested)
 //! - [ ] x86    
+//! - [x] x86_64
 //! - [x] aarch64
 //! - [ ] wasm32
 //!
@@ -123,6 +123,8 @@
 //! The granularity of the clock appears to be 2 ticks, and the
 //! asm implementation is better than using the std::time implementation
 //!
+//! The average time taken for a call is 3 ticks in release, 9 ticks in debug
+//!
 //! | %age | arch release |   arch debug | std debug    | std release  |
 //! |------|--------------|--------------|--------------|--------------|
 //! | 10   |     12       |      62      |       72     |        38    |
@@ -143,6 +145,8 @@
 //! 99, 16
 //! 100, 42918
 //!
+//! average of up to 95 15
+//!
 //! ### MacOs x86_64 debug
 //!
 //! Percentile distribution
@@ -155,6 +159,8 @@
 //! 98, 74
 //! 99, 82
 //! 100, 65262    
+//!
+//! average of up to 95 78
 //!
 //! ### MacOs std::time debug
 //!
