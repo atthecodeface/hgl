@@ -1,11 +1,16 @@
 //a Documentation
 //! This library provides architecture/implementation specific CPU
-//! counters for high precision timing
+//! counters for high precision timing, backed up by a std::time
+//! implementation where an architecture has no explicit CPU support
 //!
 //! The timers are really CPU tick counters, and so are not resilient
 //! to threads being descheduled or being moved between CPU cores; the
 //! library is designed for precise timing of short code sections
-//! where the constraints are understood.
+//! where the constraints are understood. Furthermore, the timer
+//! values are thus not in seconds but in other arbitrary units -
+//! useful for comparing execution of different parts of code, but
+//! requiring another mechanism to determine the mapping from ticks to
+//! seconds
 //!
 //! # Precision
 //!
@@ -22,29 +27,44 @@
 //!
 //! # CPU support (for non-experimental Rustc target architectures)
 //!
+//! For the stable Rustc-supported architectures, CPU implementations
+//! are provided for:
+//!
 //! - [ ] x86    
 //! - [x] x86_64
 //! - [x] aarch64
 //! - [ ] wasm32
 //!
 //! Nonsupported architectures resort to the [std::time::Instant]
-//! 'now' method
+//! 'now' method instead (which can be perfectly adequate)
 //!
 //! # Types
+//!
+//! The types in the library are all generic on *UseAsm* whether the CPU
+//! architecture specific version (if provided) of the timer should be
+//! used, or if std::time should be used instead. For architectures
+//! without a CPU implementation, the std::time version is used
+//! whatever the value of the generic.
 //!
 //! ## Timer
 //!
 //! The base type provided by this library is [Timer], which allows
 //! for recording the delta in CPU ticks between the entry to a region
-//! of code and the exit from it
+//! of code and the exit from it. It uses a generic *UseAsm* bool.
 //!
 //! ```
 //! # use hgl_utils::cpu_timer::Timer;
 //! let mut t = Timer::<true>::default();
-//! t.entry();
-//! // do something!
-//! t.exit();
-//! println!("That took {} ticks", t.value());
+//! t.start();
+//! // do something! - timed using CPU ticks
+//! t.stop();
+//! println!("That took {} cpu 'ticks'", t.value());
+//!
+//! let mut t = Timer::<false>::default();
+//! t.start();
+//! // do something! - timed using std::time
+//! t.stop();
+//! println!("That took {} nanoseconds", t.value());
 //! ```
 //!
 //! ## AccTimer
@@ -52,19 +72,31 @@
 //! Frequently one will want to repeatedly time a piece of code, to
 //! attain an average, or to just accumulate the time taken in some
 //! code whenever it is called to determine if it is a 'hotspot'. The
-//! [AccTimer] accumulates the time delta between entry and exit
+//! [AccTimer] accumulates the time delta between start and stop.
 //!
 //! ```
 //! # use hgl_utils::cpu_timer::AccTimer;
 //! let mut t = AccTimer::<true>::default();
 //! for i in 0..100 {
-//!     t.entry();
+//!     t.start();
 //!     // do something!
-//!     t.exit();
-//!     println!("Iteration {i} took {} ticks", t.value());
+//!     t.stop();
+//!     println!("Iteration {i} took {} ticks", t.last_value());
 //! }
-//! println!("That took an average of {} ticks", t.acc()/100);
+//! println!("That took an average of {} ticks", t.acc_value()/100);
 //! ```
+//!
+//! ## AccVec
+//!
+//! An [AccVec] is used to accumulate timer values, storing not just
+//! the times but also (optionally) the number of occurrences.
+//!
+//! It is used as `AccVec<A, T, C, N>`; A is a bool; T the time accumulator type; C the counter type; N the number of accumulators.
+//!
+//!  * A is true if the CPU-specific timer should be used, false if
+//!    std::time should be used
+//!
+//!  * T is the type used for accumulating time deltas
 //!
 //! ## Trace
 //!
@@ -74,7 +106,7 @@
 //! ```
 //! # use hgl_utils::cpu_timer::Trace;
 //! let mut t = Trace::<true, u32, 3>::default();
-//! t.entry();
+//! t.start();
 //!   // do something!
 //! t.next();
 //!   // do something else!
@@ -101,7 +133,7 @@
 //!
 //! impl MyThing {
 //!     fn do_something_complex(&mut self) {
-//!         self.acc.entry();
+//!         self.acc.start();
 //!         // .. do first complex thing
 //!         self.acc.next();
 //!         // .. do second complex thing
@@ -280,27 +312,100 @@
 //! 100, 24560
 
 //a Imports
-use std::marker::PhantomData;
 
 //a Constants
 //cp TICKS_PER_US_APPLE_M4
 pub const TICKS_PER_US_APPLE_M4: u64 = 1_000_000_000;
 
-//a TraceValue, TraceCount
-//tt TraceValue
+//a Delta
+//ti Delta
+/// A private type that is returned by get_timer, and which can be
+/// used for all the timer calculations
+///
+/// This is used to abstract the internals from the public API
+#[repr(transparent)]
+#[derive(Debug, Default, Clone, Copy)]
+struct Delta(u64);
+
+//ip Delta
+impl Delta {
+    //cp add
+    /// Accmulate another delta into this value
+    #[inline(always)]
+    #[must_use]
+    fn add(self, other: Self) -> Self {
+        self.0.wrapping_add(other.0).into()
+    }
+
+    //cp sat_add
+    /// Accmulate another delta into this value
+    #[inline(always)]
+    #[must_use]
+    fn sat_add(self, other: Self) -> Self {
+        self.0.saturating_add(other.0).into()
+    }
+}
+
+//a Private module to allow sealing of traits
+//mi private
+/// This module is private to seal the TArch trait, which must be
+/// implemented here only.
+mod private {
+    //iu Delta
+    use super::Delta;
+    //tp Value
+    pub(super) trait Value: std::fmt::Debug + Default + Copy {
+        fn since(self, last: Self) -> Delta;
+        fn since_and_update(&mut self, now: Self) -> Delta;
+    }
+    impl Value for u64 {
+        fn since(self, last: Self) -> Delta {
+            Delta(self.wrapping_sub(last))
+        }
+        fn since_and_update(&mut self, now: Self) -> Delta {
+            let delta = now.wrapping_sub(*self);
+            *self = now;
+            Delta(delta)
+        }
+    }
+
+    //tp ArchDesc
+    pub(super) trait ArchDesc: Default {
+        /// Value returned by the timer
+        ///
+        /// This is stored within timers but is not visible to users
+        type Value: Value;
+
+        //fp get_timer
+        /// Get the current value of the timer
+        fn get_timer() -> Self::Value;
+    }
+
+    //tt TraceValue
+    pub(super) trait TraceValue: Default + Copy + From<Delta> + Into<Delta> {
+        fn sat_add(self, other: Self) -> Self;
+    }
+}
+use private::Value;
+
+//a TraceCount
+//tt TraceCount
 /// A value that can be stored in a Trace; this is implemented for u8,
 /// u16, u32, u64 and usize
 pub trait TraceCount: Default + Copy {
     fn sat_inc(&mut self);
     fn as_usize(self) -> usize;
 }
+
+//ip TraceCount for ()
 impl TraceCount for () {
     fn sat_inc(&mut self) {}
     fn as_usize(self) -> usize {
         0
     }
 }
-//ip TraceCount for ()/u8/u16/u32/u64/u128/usize
+
+//ip TraceCount for u8/u16/u32/u64/u128/usize
 macro_rules! trace_count {
     {$t:ty} => {
         impl TraceCount for $t {
@@ -322,45 +427,16 @@ trace_count!(u64);
 trace_count!(u128);
 trace_count!(usize);
 
+//a TraceValue
 //tt TraceValue
 /// A value that can be stored in a Trace; this is implemented for u8,
 /// u16, u32, u64 and usize
 // Note that the type 'Delta' is private
 #[allow(private_bounds)]
-pub trait TraceValue: Default + Copy + From<Delta> + Into<Delta> {}
+pub trait TraceValue: private::TraceValue {}
 
-//ip TraceValue for u8/u16/u32/u64/usize
-impl TraceValue for u8 {}
-impl TraceValue for u16 {}
-impl TraceValue for u32 {}
-impl TraceValue for u64 {}
-impl TraceValue for usize {}
-
-//a Delta
-//ti Delta
-/// A private type that is returned by get_timer, and which can be
-/// used for all the timer calculations
-///
-/// This is used to abstract the internals from the public API
-#[repr(transparent)]
-#[derive(Debug, Default, Clone, Copy)]
-struct Delta(u64);
-
-//ip From<u64> for Delta
-impl From<u64> for Delta {
-    #[inline(always)]
-    fn from(t: u64) -> Self {
-        Self(t)
-    }
-}
-
-//ip From<Delta> for u64
-impl From<Delta> for u64 {
-    #[inline(always)]
-    fn from(v: Delta) -> Self {
-        v.0
-    }
-}
+//ip TraceValue for T: private::TraceValue
+impl<T> TraceValue for T where T: private::TraceValue {}
 
 //ip From<()> for Delta
 impl From<()> for Delta {
@@ -373,13 +449,16 @@ impl From<()> for Delta {
 //ip From<Delta> for ()
 impl From<Delta> for () {
     #[inline(always)]
-    fn from(_v: Delta) -> Self {
-        ()
-    }
+    fn from(_v: Delta) -> Self {}
 }
 
-//ip From<u8/u16/u32/u128/usize> for Delta and back - needs u64 elsewhere
-macro_rules! from_into_value {
+//ip private::TraceValue for ()
+impl private::TraceValue for () {
+    fn sat_add(self, _other: Self) -> Self {}
+}
+
+//ip TraceValue for u8/u16/u32/u64/u128/usize
+macro_rules! trace_value {
     {$t:ty} => {
         impl From<Delta> for $t {
             #[inline(always)]
@@ -390,117 +469,69 @@ macro_rules! from_into_value {
         impl From<$t> for Delta {
             #[inline(always)]
             fn from(t: $t) -> Self {
-                (t as u64).into()
+                Delta(t as u64)
+            }
+        }
+        impl private::TraceValue for $t {
+            fn sat_add(self, other:Self) -> Self {
+                self.saturating_add(other)
             }
         }
     }
 }
-from_into_value!(u8);
-from_into_value!(u16);
-from_into_value!(u32);
-from_into_value!(u128);
-from_into_value!(usize);
+trace_value!(u8);
+trace_value!(u16);
+trace_value!(u32);
+trace_value!(u64);
+trace_value!(u128);
+trace_value!(usize);
 
-//ip Delta
-impl Delta {
-    //cp add
-    /// Accmulate another delta into this value
-    #[inline(always)]
-    #[must_use]
-    fn add(self, other: Self) -> Self {
-        self.0.wrapping_add(other.0).into()
-    }
-}
-
-//a Architecture-specific and Standard get_timer functions
-//mi private
-/// This module is private to seal the Arch trait, which must be
-/// implemented here only.
-mod private {
-    //iu Delta
-    use super::Delta;
-    //tp
-    pub(super) trait Arch: Default {
-        /// Value returned by the timer
-        ///
-        /// This is stored within timers but is not visible to users
-        type Value: std::fmt::Debug + Default;
-
-        //fp get_timer
-        /// Get the current value of the timer
-        fn get_timer() -> Self::Value;
-
-        //fp get_delta
-        /// Get the time elapsed since a previous time
-        fn get_delta(_since: &Self::Value) -> Delta;
-
-        //fp delta_and_timer
-        /// Get the time elapsed since a previous time and update the time
-        fn delta_and_timer(_since: &mut Self::Value) -> Delta;
-    }
-}
-
-//tt Arch
+//a Architecture-specific and standard get_timer functions
+//tt TArch
 /// Trait provided for architecture-specific timers
 ///
 /// This is supported by a single assembler timer and a standard
 /// (std::time) timer
 #[allow(private_bounds)]
-pub trait Arch: private::Arch {}
+pub trait TArch: private::ArchDesc {}
 
-//ip Arch for T: private::Arch
-impl<T> Arch for T where T: private::Arch {}
+//ip TArch for T: private::ArchDesc
+impl<T> TArch for T where T: private::ArchDesc {}
 
-//tp IsAsm
-/// Marker type generic on a bool, which has the 'Arch' trait
+//tp TDesc
+/// Marker type generic on a bool, which has the 'TArch' trait
 /// implemented for it for (true) an assembler architecture specific
 /// timer implementation, and (false) for a std::time implementation
 #[derive(Default)]
-pub struct IsAsm<const B: bool>();
+pub struct TDesc<const B: bool>();
 
 //tp Asm
-/// Marker type for which IsAsm is implemented for both true and false
+/// Marker type for which TDesc is implemented for both true and false
 #[derive(Default)]
 pub struct Asm(());
 
-//ip Arch for IsAsm<true>
+//ip TArch for TDesc<true>
 // Assembler specific implementation of a
 // timer architecture
 //
 // If the architecture does not have an assembler implementation then
 // this will actually be the std::time implementation
-impl private::Arch for IsAsm<true> {
+impl private::ArchDesc for TDesc<true> {
     type Value = arch::Value;
     #[inline(always)]
     fn get_timer() -> Self::Value {
         arch::get_timer()
     }
-    #[inline(always)]
-    fn get_delta(since: &Self::Value) -> Delta {
-        arch::get_delta(since)
-    }
-    #[inline(always)]
-    fn delta_and_timer(since: &mut Self::Value) -> Delta {
-        arch::delta_and_timer(since)
-    }
 }
 
-//ip Arch for IsAsm<false>
+//ip TArch for TDesc<false>
 // std::time implementation of a
 // timer architecture
-impl private::Arch for IsAsm<false> {
+impl private::ArchDesc for TDesc<false> {
     type Value = arch_std::Value;
     #[inline(always)]
     fn get_timer() -> Self::Value {
         arch_std::get_timer()
-    }
-    #[inline(always)]
-    fn get_delta(since: &Self::Value) -> Delta {
-        arch_std::get_delta(since)
-    }
-    #[inline(always)]
-    fn delta_and_timer(since: &mut Self::Value) -> Delta {
-        arch_std::delta_and_timer(since)
     }
 }
 
@@ -510,6 +541,16 @@ mod arch_std {
     use super::Delta;
     #[derive(Debug, Clone, Copy)]
     pub struct Value(std::time::Instant);
+    impl super::private::Value for Value {
+        fn since(self, last: Self) -> Delta {
+            (self.0 - last.0).as_nanos().into()
+        }
+        fn since_and_update(&mut self, now: Self) -> Delta {
+            let delta = (now.0 - self.0).as_nanos().into();
+            *self = now;
+            delta
+        }
+    }
     impl std::default::Default for Value {
         fn default() -> Self {
             Self(std::time::Instant::now())
@@ -518,17 +559,6 @@ mod arch_std {
     #[inline(always)]
     pub fn get_timer() -> Value {
         Value(std::time::Instant::now())
-    }
-    #[inline(always)]
-    pub fn get_delta(since: &Value) -> Delta {
-        since.0.elapsed().as_nanos().into()
-    }
-    #[inline(always)]
-    pub fn delta_and_timer(since: &mut Value) -> Delta {
-        let now = std::time::Instant::now();
-        let delta = now - since.0;
-        *since = Value(now);
-        delta.as_nanos().into()
     }
 }
 
@@ -540,7 +570,6 @@ use arch_std as arch;
 /// Known to work on Apple M4 (MacbookPro 2024)
 #[cfg(target_arch = "aarch64")]
 mod arch {
-    use super::Delta;
     use std::arch::asm;
     pub type Value = u64;
     #[inline(always)]
@@ -554,17 +583,6 @@ mod arch {
             );
         }
         timer
-    }
-    #[inline(always)]
-    pub fn get_delta(since: &Value) -> Delta {
-        get_timer().wrapping_sub(*since).into()
-    }
-    #[inline(always)]
-    pub fn delta_and_timer(since: &mut Value) -> Delta {
-        let now = get_timer();
-        let delta = now.wrapping_sub(*since).into();
-        *since = now;
-        delta
     }
 }
 
@@ -580,24 +598,76 @@ mod arch {
         let lo: u64;
         let hi: u64;
         unsafe {
-            asm!("rdtsc", lateout("eax") lo, lateout("edx") hi,
+            asm!(
+                "ldfence
+                rdtsc",
+                lateout("eax") lo,
+                lateout("edx") hi,
               options(nomem, nostack)
             );
         }
         hi << 32 | lo
     }
+}
+
+//a BaseTimer
+//tp BaseTimer
+/// A basic timer that just contains the timer value
+#[derive(Default, Debug)]
+pub struct BaseTimer<const S: bool>
+where
+    TDesc<S>: TArch,
+{
+    start: <TDesc<S> as private::ArchDesc>::Value,
+}
+
+//ip BaseTimer
+impl<const S: bool> BaseTimer<S>
+where
+    TDesc<S>: TArch,
+{
+    //mi now
     #[inline(always)]
-    pub fn get_delta(since: &Value) -> Delta {
-        get_timer().wrapping_sub(*since).into()
+    fn now() -> <TDesc<S> as private::ArchDesc>::Value {
+        <TDesc<S> as private::ArchDesc>::get_timer()
     }
+
+    //mp start
+    /// Record the time now
     #[inline(always)]
-    pub fn delta_and_timer(since: &mut Value) -> Delta {
-        let now = get_timer();
-        let delta = now.wrapping_sub(*since).into();
-        *since = now;
-        delta
+    pub fn start(&mut self) {
+        self.start = Self::now();
+    }
+
+    //mp elapsed_delta
+    /// Return the Delta between now and self.start
+    #[inline(always)]
+    fn elapsed_delta(&self) -> Delta {
+        Self::now().since(self.start)
+    }
+
+    //mp elapsed_delta_and_update
+    /// Record the delta time since the last start
+    #[inline(always)]
+    fn elapsed_delta_and_update(&mut self) -> Delta {
+        self.start.since_and_update(Self::now())
+    }
+
+    //ap elapsed
+    /// Return the time elapsed as a u64
+    #[inline(always)]
+    pub fn elapsed(&self) -> u64 {
+        self.elapsed_delta().into()
+    }
+
+    //mp elapsed_and_update
+    /// Return the time elapsed as a u64, and update the timer
+    #[inline(always)]
+    pub fn elapsed_and_update(&mut self) -> u64 {
+        self.elapsed_delta_and_update().into()
     }
 }
+
 //a Timer
 //tp Timer
 /// A timer that uses the underlying CPU clock ticks to generate
@@ -608,31 +678,32 @@ mod arch {
 /// any reason, then the CPU timer value may not be useful; if the
 /// thread migrates to a different CPU core it may become invalid; etc
 ///
-/// The usage model is to capture an 'entry' time and an 'exit' time;
+/// The usage model is to capture a 'start' time and a 'stop' time;
 /// the *value* method can then be used to retrieve the CPU ticks
-/// between the entry and exit
+/// between the start and stop
 ///
 /// ```
 /// # use hgl_utils::cpu_timer::Timer;
 /// let mut t = Timer::<true>::default();
-/// t.entry();
+/// t.start();
 /// // do something!
-/// t.exit();
+/// t.stop();
 /// println!("That took {} ticks", t.value());
 /// ```
 #[derive(Default, Debug)]
 pub struct Timer<const S: bool>
 where
-    IsAsm<S>: Arch,
+    BaseTimer<S>: Default,
+    TDesc<S>: TArch,
 {
-    entry: <IsAsm<S> as private::Arch>::Value,
+    base: BaseTimer<S>,
     delta: Delta,
 }
 
 //ip Timer
 impl<const S: bool> Timer<S>
 where
-    IsAsm<S>: Arch,
+    TDesc<S>: TArch,
 {
     //mp clear
     /// Clear the timer and accumulated values
@@ -640,30 +711,29 @@ where
         *self = Self::default();
     }
 
-    //mp entry
-    /// Record the ticks on entry to a region-to-time
+    //mp start
+    /// Record the ticks at the start of the timer
     #[inline(always)]
-    pub fn entry(&mut self) {
-        self.entry = <IsAsm<S> as private::Arch>::get_timer();
+    pub fn start(&mut self) {
+        self.base.start();
     }
 
     //mp delta
-    /// Return (without updating) the delta since entry
+    /// Return (without updating) the delta since start
     #[inline(always)]
     pub fn delta(&mut self) -> u64 {
-        <IsAsm<S> as private::Arch>::get_delta(&self.entry).into()
+        self.base.elapsed_delta().into()
     }
 
-    //mp exit
-    /// Record the ticks on exit from a region-to-time
+    //mp stop
+    /// Record the delta time since the last start
     #[inline(always)]
-    pub fn exit(&mut self) {
-        self.delta = <IsAsm<S> as private::Arch>::get_delta(&self.entry);
+    pub fn stop(&mut self) {
+        self.delta = self.base.elapsed_delta();
     }
 
     //mp value
-    /// Record the ticks on exit from a region-to-time, and update the
-    /// accumulator
+    /// Return the delta time in ticks
     #[inline(always)]
     pub fn value(&self) -> u64 {
         self.delta.into()
@@ -679,12 +749,12 @@ where
 
 //a AccTimer
 //tp AccTimer
-/// An timer that accumulates the value for multiple timer entry-exits
+/// An timer that accumulates the value for multiple timer start-stops
 ///
 #[derive(Default, Debug)]
 pub struct AccTimer<const S: bool>
 where
-    IsAsm<S>: Arch,
+    TDesc<S>: TArch,
 {
     timer: Timer<S>,
     acc: Delta,
@@ -693,7 +763,7 @@ where
 //ip AccTimer
 impl<const S: bool> AccTimer<S>
 where
-    IsAsm<S>: Arch,
+    TDesc<S>: TArch,
 {
     //mp clear
     /// Clear the timer and accumulated values
@@ -701,44 +771,43 @@ where
         *self = Self::default();
     }
 
-    //mp entry
-    /// Record the ticks on entry to a region-to-time
+    //mp start
+    /// Record the ticks on start to a region-to-time
     #[inline(always)]
-    pub fn entry(&mut self) {
-        self.timer.entry();
+    pub fn start(&mut self) {
+        self.timer.start();
     }
 
-    //mp exit
-    /// Record the ticks on exit from a region-to-time
+    //mp stop
+    /// Record the ticks on stop from a region-to-time, and update the accimulator
     #[inline(always)]
-    pub fn exit(&mut self) {
-        self.timer.exit();
-        self.acc = self.acc.add(self.timer.raw());
+    pub fn stop(&mut self) {
+        self.timer.stop();
+        self.acc = self.acc.sat_add(self.timer.raw());
     }
 
-    //mp value
-    /// Record the ticks on exit from a region-to-time, and update the
-    /// accumulator
+    //mp last_value
+    /// Return the last ticks between start and stop
     #[inline(always)]
-    pub fn value(&self) -> u64 {
+    pub fn last_value(&self) -> u64 {
         self.timer.value()
     }
 
-    //mp acc
+    //mp acc_value
     /// Read the accumulator value
     #[inline(always)]
-    pub fn acc(&self) -> u64 {
+    pub fn acc_value(&self) -> u64 {
         self.acc.into()
     }
 }
 
-//a Trace, AccTrace
+//a Trace
 //tp Trace
 /// A [Trace] can be used to trace the execution of some code, from an
-/// entry point through a series of intermediate points. The delta for
+/// start point through a series of intermediate points. The delta for
 /// each step can be recorded.
 ///
-/// The 'entry' method is called first; at each completed step the
+/// The 'start' method is called first; at each completed step the
 /// 'next' method is called. At the end (after no more than 'N'
 /// steps!) the deltas for each step of the trace can be recovered
 /// with the 'trace' method.
@@ -747,9 +816,9 @@ where
 #[derive(Debug)]
 pub struct Trace<const S: bool, T: TraceValue, const N: usize>
 where
-    IsAsm<S>: Arch,
+    TDesc<S>: TArch,
 {
-    last: <IsAsm<S> as private::Arch>::Value,
+    base: BaseTimer<S>,
     index: usize,
     trace: [T; N],
 }
@@ -757,44 +826,52 @@ where
 //ip Default for Trace
 impl<const S: bool, T, const N: usize> std::default::Default for Trace<S, T, N>
 where
-    IsAsm<S>: Arch,
+    TDesc<S>: TArch,
     T: TraceValue,
     [T; N]: Default,
 {
     fn default() -> Self {
-        let last = <IsAsm<S> as private::Arch>::Value::default();
+        let base = BaseTimer::default();
         let index = 0;
         let trace = <[T; N]>::default();
-        Self { last, index, trace }
+        Self { base, index, trace }
     }
 }
 
 //ip Trace
 impl<const S: bool, T, const N: usize> Trace<S, T, N>
 where
-    IsAsm<S>: Arch,
+    TDesc<S>: TArch,
     T: TraceValue,
 {
     //mp clear
-    /// Clear the timer and accumulated values
+    /// Clear the timer and trace
     pub fn clear(&mut self) {
         unsafe { *self = std::mem::zeroed() };
     }
 
-    //mp entry
-    /// Record the ticks on entry to a region-to-time
+    //mp start
+    /// Record the ticks on start to a region-to-time
+    ///
+    /// Up to *N* invocations of 'next' afterwards will store
+    /// individual deltas in the trace
     #[inline(always)]
-    pub fn entry(&mut self) {
-        self.last = <IsAsm<S> as private::Arch>::get_timer();
+    pub fn start(&mut self) {
+        self.base.start();
         self.index = 0;
     }
 
     //mp next
-    /// Record the ticks on exit from a region-to-time
+    /// Calculate the delta since the last 'start' or 'next', and
+    /// store it in the next trace slot
+    ///
+    /// If this is invoked more than *N* times after a start then no
+    /// work is done, as there is no space to store the time in the
+    /// internal trace
     #[inline(always)]
     pub fn next(&mut self) {
         if self.index < N {
-            let delta = <IsAsm<S> as private::Arch>::delta_and_timer(&mut self.last);
+            let delta = self.base.elapsed_delta_and_update();
             self.trace[self.index] = delta.into();
             self.index += 1;
         }
@@ -807,27 +884,28 @@ where
     }
 }
 
+//a AccVec
 //tp AccVec
 /// An [AccVec] can be used to accumulate the times taken to execute
-/// different branches of code, from a common entry point. Each branch
+/// different branches of code, from a common start point. Each branch
 /// is allocated a different index into the AccVec. It can also count
 /// the entries.
 ///
-/// The 'entry' method is called first; when a branch completed it
+/// The 'start' method is called first; when a branch completed it
 /// invokes the 'acc' method with its index, and the delta time since
-/// the entry is added to that entry's accumulator.
+/// the start is added to that start's accumulator.
 ///
-/// Invoking the 'acc' method does not update the 'entry' time, and it
+/// Invoking the 'acc' method does not update the 'start' time, and it
 /// is quite sensible to issue multiple 'acc' invocations (with
-/// different index values) for a given 'entry' invocation.
+/// different index values) for a given 'start' invocation.
 ///
 /// An AccVec can be generated for any N, for T in u8, u16, u32, u64, u128 and usize
 #[derive(Debug)]
 pub struct AccVec<const S: bool, T: TraceValue, C: TraceCount, const N: usize>
 where
-    IsAsm<S>: Arch,
+    TDesc<S>: TArch,
 {
-    entry: <IsAsm<S> as private::Arch>::Value,
+    base: BaseTimer<S>,
     accs: [T; N],
     cnts: [C; N],
 }
@@ -835,24 +913,24 @@ where
 //ip Default for AccVec
 impl<const S: bool, T, C, const N: usize> std::default::Default for AccVec<S, T, C, N>
 where
-    IsAsm<S>: Arch,
+    TDesc<S>: TArch,
     T: TraceValue,
     C: TraceCount,
     [T; N]: Default,
     [C; N]: Default,
 {
     fn default() -> Self {
-        let entry = <IsAsm<S> as private::Arch>::Value::default();
+        let base = BaseTimer::default();
         let accs = <[T; N]>::default();
         let cnts = <[C; N]>::default();
-        Self { entry, accs, cnts }
+        Self { base, accs, cnts }
     }
 }
 
 //ip AccVec
 impl<const S: bool, T, C, const N: usize> AccVec<S, T, C, N>
 where
-    IsAsm<S>: Arch,
+    TDesc<S>: TArch,
     T: TraceValue,
     C: TraceCount,
 {
@@ -862,11 +940,11 @@ where
         unsafe { *self = std::mem::zeroed() };
     }
 
-    //mp entry
-    /// Record the ticks on entry to a region-to-time
+    //mp start
+    /// Start the underlying timer
     #[inline(always)]
-    pub fn entry(&mut self) {
-        self.entry = <IsAsm<S> as private::Arch>::get_timer();
+    pub fn start(&mut self) {
+        self.base.start();
     }
 
     //mp acc_n
@@ -874,7 +952,19 @@ where
     #[inline(always)]
     pub fn acc_n(&mut self, index: usize) {
         if index < N {
-            let delta = <IsAsm<S> as private::Arch>::get_delta(&self.entry);
+            let delta = self.base.elapsed_delta();
+            let acc = delta.add(self.accs[index].into());
+            self.accs[index] = acc.into();
+            self.cnts[index].sat_inc();
+        }
+    }
+
+    //mp acc_n_restart
+    /// Add the ticks on exit to a specific region
+    #[inline(always)]
+    pub fn acc_n_restart(&mut self, index: usize) {
+        if index < N {
+            let delta = self.base.elapsed_delta_and_update();
             let acc = delta.add(self.accs[index].into());
             self.accs[index] = acc.into();
             self.cnts[index].sat_inc();
@@ -894,11 +984,12 @@ where
     }
 }
 
+//a AccTrace
 //tp AccTrace
 #[derive(Debug)]
 pub struct AccTrace<const S: bool, T: TraceValue, const N: usize>
 where
-    IsAsm<S>: Arch,
+    TDesc<S>: TArch,
 {
     trace: Trace<S, T, N>,
     acc: [T; N],
@@ -907,7 +998,7 @@ where
 //ip Default for AccTrace
 impl<const S: bool, T, const N: usize> std::default::Default for AccTrace<S, T, N>
 where
-    IsAsm<S>: Arch,
+    TDesc<S>: TArch,
     T: TraceValue,
     [T; N]: Default,
 {
@@ -921,7 +1012,7 @@ where
 //ip AccTrace
 impl<const S: bool, T, const N: usize> AccTrace<S, T, N>
 where
-    IsAsm<S>: Arch,
+    TDesc<S>: TArch,
     T: TraceValue,
 {
     //mp clear
@@ -931,11 +1022,11 @@ where
         unsafe { self.acc = std::mem::zeroed() };
     }
 
-    //mp entry
-    /// Record the ticks on entry to a region-to-time
+    //mp start
+    /// Record the ticks on start to a region-to-time
     #[inline(always)]
-    pub fn entry(&mut self) {
-        self.trace.entry();
+    pub fn start(&mut self) {
+        self.trace.start();
     }
 
     //mp next

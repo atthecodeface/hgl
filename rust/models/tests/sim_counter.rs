@@ -61,7 +61,7 @@ fn sim_counter() -> Result<(), String> {
 
     dbg!(&sim);
     let mut timer = AccTimer::default();
-    timer.entry();
+    timer.start();
     for _ in 0..10_000 {
         sim.fire_next_edges();
     }
@@ -70,10 +70,10 @@ fn sim_counter() -> Result<(), String> {
     for _ in 0..1_000 {
         sim.fire_next_edges();
     }
-    timer.exit();
+    timer.stop();
     *sim.inst_mut::<Counter<T>>(cntr).inputs.increment = false.into();
 
-    eprintln!("Timer ticks per cycle {}", timer.value() / 11_000);
+    eprintln!("Timer ticks per cycle {}", timer.acc_value() / 11_000);
 
     dbg!(&sim);
     let exp: u64 = (1 << 31) + 32 - 9000;
