@@ -46,21 +46,21 @@
 //! without a CPU implementation, the std::time version is used
 //! whatever the value of the generic.
 //!
-//! ## Timer
+//! ## DeltaTimer
 //!
 //! The base type provided by this library is [Timer], which allows
 //! for recording the delta in CPU ticks between the entry to a region
 //! of code and the exit from it. It uses a generic *UseAsm* bool.
 //!
 //! ```
-//! # use hgl_utils::cpu_timer::Timer;
-//! let mut t = Timer::<true>::default();
+//! # use hgl_utils::cpu_timer::DeltaTimer;
+//! let mut t = DeltaTimer::<true>::default();
 //! t.start();
 //! // do something! - timed using CPU ticks
 //! t.stop();
 //! println!("That took {} cpu 'ticks'", t.value());
 //!
-//! let mut t = Timer::<false>::default();
+//! let mut t = DeltaTimer::<false>::default();
 //! t.start();
 //! // do something! - timed using std::time
 //! t.stop();
@@ -81,7 +81,7 @@
 //!     t.start();
 //!     // do something!
 //!     t.stop();
-//!     println!("Iteration {i} took {} ticks", t.last_value());
+//!     println!("Iteration {i} took {} ticks", t.last_delta());
 //! }
 //! println!("That took an average of {} ticks", t.acc_value()/100);
 //! ```
@@ -668,8 +668,8 @@ where
     }
 }
 
-//a Timer
-//tp Timer
+//a DeltaTimer
+//tp DeltaTimer
 /// A timer that uses the underlying CPU clock ticks to generate
 /// precise timings for short-term execution
 ///
@@ -683,15 +683,15 @@ where
 /// between the start and stop
 ///
 /// ```
-/// # use hgl_utils::cpu_timer::Timer;
-/// let mut t = Timer::<true>::default();
+/// # use hgl_utils::cpu_timer::DeltaTimer;
+/// let mut t = DeltaTimer::<true>::default();
 /// t.start();
 /// // do something!
 /// t.stop();
 /// println!("That took {} ticks", t.value());
 /// ```
 #[derive(Default, Debug)]
-pub struct Timer<const S: bool>
+pub struct DeltaTimer<const S: bool>
 where
     BaseTimer<S>: Default,
     TDesc<S>: TArch,
@@ -700,8 +700,8 @@ where
     delta: Delta,
 }
 
-//ip Timer
-impl<const S: bool> Timer<S>
+//ip DeltaTimer
+impl<const S: bool> DeltaTimer<S>
 where
     TDesc<S>: TArch,
 {
@@ -738,13 +738,6 @@ where
     pub fn value(&self) -> u64 {
         self.delta.into()
     }
-
-    //mi raw
-    /// Return the internal value for other methods in this library
-    #[inline(always)]
-    fn raw(&self) -> Delta {
-        self.delta
-    }
 }
 
 //a AccTimer
@@ -756,7 +749,8 @@ pub struct AccTimer<const S: bool>
 where
     TDesc<S>: TArch,
 {
-    timer: Timer<S>,
+    base: BaseTimer<S>,
+    delta: Delta,
     acc: Delta,
 }
 
@@ -775,22 +769,22 @@ where
     /// Record the ticks on start to a region-to-time
     #[inline(always)]
     pub fn start(&mut self) {
-        self.timer.start();
+        self.base.start();
     }
 
     //mp stop
     /// Record the ticks on stop from a region-to-time, and update the accimulator
     #[inline(always)]
     pub fn stop(&mut self) {
-        self.timer.stop();
-        self.acc = self.acc.sat_add(self.timer.raw());
+        self.delta = self.base.elapsed_delta();
+        self.acc = self.acc.sat_add(self.delta);
     }
 
-    //mp last_value
+    //mp last_delta
     /// Return the last ticks between start and stop
     #[inline(always)]
-    pub fn last_value(&self) -> u64 {
-        self.timer.value()
+    pub fn last_delta(&self) -> u64 {
+        self.delta.into()
     }
 
     //mp acc_value

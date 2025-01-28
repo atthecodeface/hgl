@@ -1,7 +1,7 @@
 //a Imports
 use std::collections::HashMap;
 
-use hgl_utils::cpu_timer::{AccTimer, AccTrace, TArch, TDesc, Timer, Trace};
+use hgl_utils::cpu_timer::{AccTimer, AccTrace, BaseTimer, DeltaTimer, TArch, TDesc, Trace};
 
 //a Work functions
 //fp do_work
@@ -9,7 +9,7 @@ fn do_work<const S: bool>() -> ()
 where
     TDesc<S>: TArch,
 {
-    let mut t = Timer::<S>::default();
+    let mut t = DeltaTimer::<S>::default();
     for _ in 0..100 {
         t.start();
         t.stop();
@@ -23,7 +23,7 @@ where
 {
     t.start();
     for i in 0..16 {
-        let mut ti = Timer::<S>::default();
+        let mut ti = DeltaTimer::<S>::default();
         for _ in 0..100 * (i + 1) {
             ti.start();
             ti.stop();
@@ -40,7 +40,7 @@ where
     for acc in 0..10 {
         t.start();
         for i in 0..16 {
-            let mut ti = Timer::<S>::default();
+            let mut ti = DeltaTimer::<S>::default();
             for _ in 0..100 * (i + 1) {
                 ti.start();
                 ti.stop();
@@ -88,13 +88,13 @@ fn check_data(data: &[u32]) -> Result<(), String> {
 }
 
 //a Generic tests
-//fp generic_test_timer
-fn generic_test_timer<const S: bool>()
+//fp generic_test_delta_timer
+fn generic_test_delta_timer<const S: bool>()
 where
     TDesc<S>: TArch,
 {
-    let mut t0 = Timer::<S>::default();
-    let mut t1 = Timer::<S>::default();
+    let mut t0 = DeltaTimer::<S>::default();
+    let mut t1 = DeltaTimer::<S>::default();
     t0.start();
     t1.start();
     do_work::<S>();
@@ -226,7 +226,7 @@ where
         t0.start();
         do_work::<S>();
         t0.stop();
-        let v = t0.last_value() as usize;
+        let v = t0.last_delta() as usize;
         total += v;
         if v == 0 {
             zeros += 1;
@@ -262,7 +262,7 @@ where
     // Outputs the distribuion of delays
 
     let mut record = vec![0u64; 100_000];
-    let mut t0 = Timer::<S>::default();
+    let mut t0 = DeltaTimer::<S>::default();
     t0.start();
     for i in 0..record.len() {
         record[i] = t0.delta();
@@ -306,11 +306,11 @@ where
 }
 
 //a Tests
-//fp test_timer
+//fp test_delta_timer
 #[test]
 fn test_timer() {
-    generic_test_timer::<true>();
-    generic_test_timer::<false>();
+    generic_test_delta_timer::<true>();
+    generic_test_delta_timer::<false>();
 }
 
 //fp test_trace
