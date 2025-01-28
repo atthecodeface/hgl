@@ -1,7 +1,7 @@
 //a Imports
 use std::collections::HashMap;
 
-use hgl_utils::cpu_timer::{AccTimer, AccTrace, BaseTimer, DeltaTimer, TArch, TDesc, Trace};
+use hgl_utils::cpu_timer::{AccTimer, AccTrace, DeltaTimer, TArch, TDesc, Timer, Trace};
 
 //a Work functions
 //fp do_work

@@ -613,6 +613,8 @@ mod arch {
 //a BaseTimer
 //tp BaseTimer
 /// A basic timer that just contains the timer value
+///
+/// This is used internally for all the timer implementations
 #[derive(Default, Debug)]
 pub struct BaseTimer<const S: bool>
 where
@@ -667,6 +669,11 @@ where
         self.elapsed_delta_and_update().into()
     }
 }
+
+//a Timer
+//tp Timer
+/// A basic timer that supports start, elapsed, and elapsed_and_update
+pub type Timer<const S: bool> = BaseTimer<S>;
 
 //a DeltaTimer
 //tp DeltaTimer
