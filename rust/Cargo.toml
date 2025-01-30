@@ -47,6 +47,9 @@ hgl_models = { version = "0.0.1", path = "./models" }
 [workspace.dependencies.rand]
 version = "0.8.5"
 
+[workspace.dependencies.cpu_timer]
+version = "0.1.0"
+
 [workspace.dependencies.serde]
 version = "1.0"
 features = ["derive", "rc"]

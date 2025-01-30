@@ -1,7 +1,7 @@
 use hgl_models::Counter;
 use hgl_sim::prelude::sim::*;
 
-type AccTimer = hgl_utils::cpu_timer::AccTimer<true>;
+type AccTimer = cpu_timer::AccTimer<true>;
 
 #[test]
 fn sim_counter() -> Result<(), String> {
@@ -85,6 +85,53 @@ fn sim_counter() -> Result<(), String> {
             .unwrap(),
         exp
     );
+
+    // assert!(false);
+
+    Ok(())
+}
+
+#[test]
+fn test_full() -> Result<(), String>
+// where
+//    BvN<N>: IsBv
+{
+    type T = Bv<31>;
+    const N: usize = 31;
+    let reset_value = 1 << (N - 1);
+    let mut sim = Simulation::new();
+    let clk = sim.add_clock("clk", 0, 1, 0)?;
+    let cntr = sim.instantiate::<Counter<T>, _, _>("counter", || Some(T::of_u64(reset_value)))?;
+
+    let cntr_clk = sim
+        .instance(cntr)
+        .state_index(sim.find_name("clk").unwrap())
+        .unwrap();
+
+    sim.connect_clock(clk, cntr, 0); // cntr_clk);
+
+    sim.prepare_simulation();
+
+    *sim.inst_mut::<Counter<T>>(cntr).inputs.reset_n = true.into();
+    for _ in 0..10 {
+        sim.fire_next_edges();
+    }
+
+    *sim.inst_mut::<Counter<T>>(cntr).inputs.decrement = true.into();
+    *sim.inst_mut::<Counter<T>>(cntr).inputs.increment = false.into();
+    for _ in 0..1_000 {
+        sim.fire_next_edges();
+    }
+
+    *sim.inst_mut::<Counter<T>>(cntr).inputs.decrement = false.into();
+    *sim.inst_mut::<Counter<T>>(cntr).inputs.increment = true.into();
+    for _ in 0..1_000 {
+        sim.fire_next_edges();
+    }
+
+    *sim.inst_mut::<Counter<T>>(cntr).inputs.increment = false.into();
+
+    dbg!(&sim);
 
     // assert!(false);
 

@@ -12,10 +12,11 @@ description = "Simulation and support for models"
 
 [dependencies]
 hgl_sim.workspace = true
+cpu_timer.workspace = true
 rand.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 
 # Only for tests...
-hgl_utils.workspace = true
+# hgl_utils.workspace = true
 hgl_indexed_vec.workspace = true
