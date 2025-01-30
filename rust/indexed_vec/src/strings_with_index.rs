@@ -10,22 +10,20 @@ make_index!(StringIndex, usize);
 //a StringsWithIndex
 //tp StringsWithIndex
 #[derive(Debug, Default)]
-pub struct StringsWithIndex {
-    // Note that VecWithIndex requires the key to be static (as
-    // probably does a HashMap)
-    strings: VecWithIndex<&'static str, StringIndex, Pin<String>>,
+pub struct StringsWithIndex<'swi> {
+    strings: VecWithIndex<'swi, &'swi str, StringIndex, Pin<String>>,
 }
 
 //ip Index<Name> for StringsWithIndex
-impl std::ops::Index<StringIndex> for StringsWithIndex {
+impl<'swi> std::ops::Index<StringIndex> for StringsWithIndex<'swi> {
     type Output = str;
-    fn index(&self, p: StringIndex) -> &str {
+    fn index<'a>(&'a self, p: StringIndex) -> &'a str {
         Pin::into_inner(self.strings[p].as_ref())
     }
 }
 
 //ip StringsWithIndex
-impl StringsWithIndex {
+impl<'swi> StringsWithIndex<'swi> {
     //mi add
     /// Add string to the indexed array; must only be issued if find returns false
     fn add<S: Into<String>>(&mut self, s: S) -> StringIndex {
@@ -62,17 +60,20 @@ impl StringsWithIndex {
     }
 
     //mp find_string
-    pub fn find_string(&self, s: &str) -> Option<StringIndex> {
-        // SAFETY:
-        //
-        // s is &'fn str - i.e. must be live for this function
-        //
-        // strings.get() *borrows* &'static str, but it's use cannot
-        // outlive this function
-        //
-        // So strings.get() when strings has an &'static str is its key needs to have its lifetime extended
-        let temp_str: &str = unsafe { std::mem::transmute::<_, _>(s) };
-        self.strings.find_key(&temp_str)
+    pub fn find_string(&self, s: &'swi str) -> Option<StringIndex> {
+        self.strings.find_key(&s)
+    }
+
+    //mp strings
+    /// Iterate through the keys
+    pub fn strings(&self) -> impl Iterator<Item = &&str> {
+        self.strings.keys()
+    }
+
+    //mp contains
+    /// Returns true if this contains a string
+    pub fn contains<S: AsRef<str>>(&self, s: &S) -> bool {
+        self.strings.contains(&s.as_ref())
     }
 
     //mp fmt_string

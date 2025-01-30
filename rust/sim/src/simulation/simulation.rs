@@ -22,19 +22,19 @@ pub struct EdgeUse {
 
 //tp SimulationControl
 #[derive(Default)]
-struct SimulationControl {
+struct SimulationControl<'s> {
     /// Names and namespaces in the simulation
-    names: Names,
+    names: Names<'s>,
     /// Current namespace stack
     namespace_stack: NamespaceStack,
     /// Use of edges by instances
     edge_uses: HashMap<InstanceHandle, Vec<EdgeUse>>,
     /// Clocks used in the simulation
-    clocks: ClockArray,
+    clocks: ClockArray<'s>,
 }
 
 //ip SimulationControl
-impl SimulationControl {
+impl SimulationControl<'_> {
     //ap ns_name_fmt
     pub fn ns_name_fmt(&self, name: SimNsName) -> NsNameFmt {
         self.names.ns_name_fmt(name)
@@ -90,17 +90,17 @@ impl SimHandle for InstanceHandle {}
 
 //a Simulation
 //tp Simulation
-pub struct Simulation {
+pub struct Simulation<'s> {
     /// Control of the simulation that can change during simulation itself
-    control: RefCell<SimulationControl>,
+    control: RefCell<SimulationControl<'s>>,
 
     /// Instances which can be individually executed by separate
     /// threads
-    instances: VecWithIndex<SimNsName, InstanceHandle, Instance>,
+    instances: VecWithIndex<'s, SimNsName, InstanceHandle, Instance>,
 }
 
 //ip Debug for Simulation
-impl std::fmt::Debug for Simulation {
+impl std::fmt::Debug for Simulation<'_> {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         write!(fmt, "Simulation[clocks:[")?;
         for (i, clk) in self.control.borrow().iter_clocks().enumerate() {
@@ -128,14 +128,14 @@ impl std::fmt::Debug for Simulation {
 }
 
 //ip Default for Simulation
-impl Default for Simulation {
+impl Default for Simulation<'_> {
     fn default() -> Self {
         Self::new()
     }
 }
 
 //ip Simulation
-impl Simulation {
+impl Simulation<'_> {
     //cp new
     /// Create a new simulation
     pub fn new() -> Self {
@@ -294,7 +294,7 @@ impl Simulation {
 }
 
 //ip SimRegister for Simulation
-impl SimRegister for Simulation {
+impl SimRegister for Simulation<'_> {
     type Handle = InstanceHandle;
 
     fn register_input_edge(

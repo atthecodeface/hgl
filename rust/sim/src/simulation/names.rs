@@ -67,10 +67,10 @@ impl From<(SimNsName, Name)> for NsName {
 /// A formatter for full namespace names
 ///
 ///
-pub struct NameFmt<'a>(&'a Names, Name);
+pub struct NameFmt<'f, 'n>(&'f Names<'n>, Name);
 
 //ip Display for NameFmt
-impl<'a> std::fmt::Display for NameFmt<'a> {
+impl std::fmt::Display for NameFmt<'_, '_> {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
         self.0.fmt_name(fmt, self.1)
     }
@@ -80,10 +80,10 @@ impl<'a> std::fmt::Display for NameFmt<'a> {
 /// A formatter for full namespace names
 ///
 ///
-pub struct NsNameFmt<'a>(&'a Names, SimNsName);
+pub struct NsNameFmt<'f, 'n>(&'f Names<'n>, SimNsName);
 
 //ip Display for NsNameFmt
-impl<'a> std::fmt::Display for NsNameFmt<'a> {
+impl std::fmt::Display for NsNameFmt<'_, '_> {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
         self.0.fmt_ns_name(fmt, self.1)
     }
@@ -91,13 +91,13 @@ impl<'a> std::fmt::Display for NsNameFmt<'a> {
 
 //a Names
 //tp Names
-pub struct Names {
-    names: StringsWithIndex,
-    namespace_names: VecWithIndex<NsName, SimNsName, NsName>,
+pub struct Names<'a> {
+    names: StringsWithIndex<'a>,
+    namespace_names: VecWithIndex<'a, NsName, SimNsName, NsName>,
 }
 
 //ip Default for Names
-impl std::default::Default for Names {
+impl std::default::Default for Names<'_> {
     fn default() -> Self {
         let mut names = StringsWithIndex::default();
         let _ = names.find_or_add("");
@@ -110,7 +110,7 @@ impl std::default::Default for Names {
 }
 
 //ip Index<Name> for Names
-impl std::ops::Index<Name> for Names {
+impl std::ops::Index<Name> for Names<'_> {
     type Output = str;
     fn index(&self, p: Name) -> &str {
         &self.names[p]
@@ -118,7 +118,7 @@ impl std::ops::Index<Name> for Names {
 }
 
 //ip Index<SimNsName> for Names
-impl std::ops::Index<SimNsName> for Names {
+impl std::ops::Index<SimNsName> for Names<'_> {
     type Output = NsName;
     fn index(&self, n: SimNsName) -> &NsName {
         &self.namespace_names[n]
@@ -126,7 +126,7 @@ impl std::ops::Index<SimNsName> for Names {
 }
 
 //ip Names
-impl Names {
+impl<'a> Names<'a> {
     pub fn root_namespace(&self) -> NsName {
         self.namespace_names.first().copied().unwrap()
     }

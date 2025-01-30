@@ -200,9 +200,9 @@ struct ClockUse {
 }
 
 #[derive(Default)]
-pub struct ClockArray {
+pub struct ClockArray<'a> {
     /// Clocks in the array
-    clocks: VecWithIndex<SimNsName, ClockIndex, Clock>,
+    clocks: VecWithIndex<'a, SimNsName, ClockIndex, Clock>,
 
     /// Current running schedule of the clocks
     ///
@@ -214,7 +214,7 @@ pub struct ClockArray {
 }
 
 //ip ClockArray
-impl ClockArray {
+impl<'a> ClockArray<'a> {
     //mp add_clock
     #[track_caller]
     pub fn add_clock(

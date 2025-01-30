@@ -1,47 +1,66 @@
 //a Imports
 use std::collections::HashMap;
+use std::marker::PhantomData;
 
 use crate::{Idx, IndexedVec};
 
 //a IndexKey
 //tt IndexKey
-pub trait IndexKey: Copy + std::fmt::Debug + PartialEq + Eq + std::hash::Hash + 'static {}
+pub trait IndexKey<'key>: Copy + std::fmt::Debug + PartialEq + Eq + std::hash::Hash + 'key {}
 
 //it IndexKey
-impl<T> IndexKey for T where T: Copy + std::fmt::Debug + PartialEq + Eq + std::hash::Hash + 'static {}
+impl<'key, T> IndexKey<'key> for T where
+    T: Copy + std::fmt::Debug + PartialEq + Eq + std::hash::Hash + 'key
+{
+}
 
 //a VecWithIndex
 //tp VecWithIndex
-/// An [VecWithIndex] is a Vec of items with an index
+/// An [VecWithIndex] is an IndexedVec of items with an array index,
+/// and a dictionary mapping an index key to array indices
 ///
-/// When adding
-pub struct VecWithIndex<K, H, D>
+/// Once an element is added to the VecWithIndex it cannot be mutated
+/// or removed; any array index returned by methods is valid for the
+/// lifetime of the VecWithIndex.
+///
+/// The index is a mapping from key to an index to the internal array;
+/// references to entries can either be by using a reference to an
+/// index key, or by using an array index.
+///
+/// It suports Deref into the array; it thus exposes 'keys' and
+/// 'contains' methods of the underlying HashMap explicitly.
+pub struct VecWithIndex<'vwi, K, I, D>
 where
-    K: IndexKey,
-    H: Idx,
+    K: IndexKey<'vwi>,
+    I: Idx + 'vwi,
 {
-    array: IndexedVec<H, D, false>,
-    index: HashMap<K, H>,
+    array: IndexedVec<I, D, false>,
+    index: HashMap<K, I>,
+    phantom: PhantomData<&'vwi fn()>,
 }
 
-//ip Default for VecWithIndex<K, H, D>
-impl<K, H, D> std::default::Default for VecWithIndex<K, H, D>
+//ip Default for VecWithIndex<K, I, D>
+impl<'vwi, K, I, D> std::default::Default for VecWithIndex<'vwi, K, I, D>
 where
-    K: IndexKey,
-    H: Idx,
+    K: IndexKey<'vwi>,
+    I: Idx + 'vwi,
 {
     fn default() -> Self {
         let array = IndexedVec::default();
         let index = HashMap::default();
-        Self { array, index }
+        Self {
+            array,
+            index,
+            phantom: PhantomData,
+        }
     }
 }
 
-//ip Debug for VecWithIndex<K, H, D>
-impl<K, H, D> std::fmt::Debug for VecWithIndex<K, H, D>
+//ip Debug for VecWithIndex<K, I, D>
+impl<'vwi, K, I, D> std::fmt::Debug for VecWithIndex<'vwi, K, I, D>
 where
-    K: IndexKey,
-    H: Idx,
+    K: IndexKey<'vwi>,
+    I: Idx + 'vwi,
     D: std::fmt::Debug,
 {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
@@ -59,51 +78,51 @@ where
     }
 }
 
-//ip Index<Handle> for VecWithIndex
-impl<K, H, D> std::ops::Index<H> for VecWithIndex<K, H, D>
+//ip Index<ArrayIndex> for VecWithIndex
+impl<'vwi, K, I, D> std::ops::Index<I> for VecWithIndex<'vwi, K, I, D>
 where
-    K: IndexKey,
-    H: Idx,
+    K: IndexKey<'vwi>,
+    I: Idx + 'vwi,
 {
     type Output = D;
-    fn index(&self, n: H) -> &D {
+    fn index(&self, n: I) -> &D {
         &self.array[n]
     }
 }
 
 //ip IntoIter for VecWithIndex
-impl<'a, K, H, D> std::iter::IntoIterator for &'a VecWithIndex<K, H, D>
+impl<'iter, 'vwi, K, I, D> std::iter::IntoIterator for &'iter VecWithIndex<'vwi, K, I, D>
 where
-    K: IndexKey,
-    H: Idx,
+    K: IndexKey<'vwi>,
+    I: Idx + 'vwi,
 {
-    type Item = &'a D;
-    type IntoIter = std::slice::Iter<'a, D>;
+    type Item = &'iter D;
+    type IntoIter = std::slice::Iter<'iter, D>;
 
     // Required method
-    fn into_iter(self) -> std::slice::Iter<'a, D> {
+    fn into_iter(self) -> std::slice::Iter<'iter, D> {
         self.array.into_iter()
     }
 }
 
 //ip Deref for VecWithIndex
-impl<K, H, D> std::ops::Deref for VecWithIndex<K, H, D>
+impl<'vwi, K, I, D> std::ops::Deref for VecWithIndex<'vwi, K, I, D>
 where
-    K: IndexKey,
-    H: Idx,
+    K: IndexKey<'vwi>,
+    I: Idx + 'vwi,
 {
-    type Target = IndexedVec<H, D, false>;
+    type Target = IndexedVec<I, D, false>;
     #[inline]
-    fn deref(&self) -> &IndexedVec<H, D, false> {
+    fn deref(&self) -> &IndexedVec<I, D, false> {
         &self.array
     }
 }
 
 //ip AsRef<[D]> for VecWithIndex
-impl<K, H, D> AsRef<[D]> for VecWithIndex<K, H, D>
+impl<'vwi, K, I, D> AsRef<[D]> for VecWithIndex<'vwi, K, I, D>
 where
-    K: IndexKey,
-    H: Idx,
+    K: IndexKey<'vwi>,
+    I: Idx + 'vwi,
 {
     #[inline]
     fn as_ref(&self) -> &[D] {
@@ -112,14 +131,14 @@ where
 }
 
 //ip VecWithIndex
-impl<K, H, D> VecWithIndex<K, H, D>
+impl<'vwi, K, I, D> VecWithIndex<'vwi, K, I, D>
 where
-    K: IndexKey,
-    H: Idx,
+    K: IndexKey<'vwi>,
+    I: Idx + 'vwi,
 {
     //mp find_key
     /// Find the key in the index, if it is there
-    pub fn find_key(&self, key: &K) -> Option<H> {
+    pub fn find_key(&self, key: &K) -> Option<I> {
         self.index.get(key).copied()
     }
 
@@ -129,7 +148,7 @@ where
     /// Returns (found, index) - i.e. found is true if the key was
     /// already present, and false if the key was not present and the
     /// data was added to the array
-    pub fn find_or_add<F: FnOnce(&K) -> D>(&mut self, key: K, f: F) -> (bool, H) {
+    pub fn find_or_add<F: FnOnce(&K) -> D>(&mut self, key: K, f: F) -> (bool, I) {
         if let Some(index) = self.index.get(&key) {
             (true, *index)
         } else {
@@ -143,7 +162,7 @@ where
     /// Add data to the array and index, but only if it is not present
     ///
     /// If it is already present, return an Err
-    pub fn insert<F: FnOnce(&K) -> D>(&mut self, key: K, f: F) -> Result<H, H> {
+    pub fn insert<F: FnOnce(&K) -> D>(&mut self, key: K, f: F) -> Result<I, I> {
         if let Some(index) = self.index.get(&key) {
             Err(*index)
         } else {
@@ -151,5 +170,17 @@ where
             self.index.insert(key, index);
             Ok(index)
         }
+    }
+
+    //mp keys
+    /// Iterate through the keys
+    pub fn keys(&self) -> impl Iterator<Item = &K> {
+        self.index.keys()
+    }
+
+    //mp contains
+    /// Returns true if this contains a key
+    pub fn contains(&self, key: &K) -> bool {
+        self.index.contains_key(key)
     }
 }
