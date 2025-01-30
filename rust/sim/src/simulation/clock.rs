@@ -214,7 +214,7 @@ pub struct ClockArray<'a> {
 }
 
 //ip ClockArray
-impl<'a> ClockArray<'a> {
+impl ClockArray<'_> {
     //mp add_clock
     #[track_caller]
     pub fn add_clock(
@@ -253,13 +253,13 @@ impl<'a> ClockArray<'a> {
     ) {
         self.clock_uses
             .entry((clock, posedge))
-            .or_insert_with(|| vec![])
+            .or_default()
             .push(ClockUse { instance, input });
     }
 
     //mp derive_instance_edges_of_masks
     pub fn derive_instance_edges_of_masks(&mut self, ie: &(usize, usize)) {
-        if self.instance_edges.contains_key(&ie) {
+        if self.instance_edges.contains_key(ie) {
             return;
         }
         let mut blah: HashMap<InstanceHandle, SimEdgeMask> = HashMap::new();
@@ -289,7 +289,7 @@ impl<'a> ClockArray<'a> {
         let Some(schedule) = &mut self.schedule else {
             panic!("Schedule has not been set up - no call of derive_schedule yet");
         };
-        let ie = schedule.next_edges(&self.clocks.as_ref());
+        let ie = schedule.next_edges(self.clocks.as_ref());
         if !self.instance_edges.contains_key(&ie) {
             self.derive_instance_edges_of_masks(&ie);
         }
@@ -301,7 +301,7 @@ impl<'a> ClockArray<'a> {
         let Some(ie) = self.instance_edges.get(edges) else {
             return &[];
         };
-        &*ie
+        ie
     }
 
     //ap time
@@ -313,8 +313,8 @@ impl<'a> ClockArray<'a> {
         schedule.time
     }
 
-    //ap into_iter
-    pub fn into_iter(&self) -> impl std::iter::Iterator<Item = &Clock> {
+    //ap iter
+    pub fn iter(&self) -> impl std::iter::Iterator<Item = &Clock> {
         self.clocks.into_iter()
     }
 }

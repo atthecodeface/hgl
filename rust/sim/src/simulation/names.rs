@@ -126,7 +126,7 @@ impl std::ops::Index<SimNsName> for Names<'_> {
 }
 
 //ip Names
-impl<'a> Names<'a> {
+impl Names<'_> {
     pub fn root_namespace(&self) -> NsName {
         self.namespace_names.first().copied().unwrap()
     }

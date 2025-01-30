@@ -46,7 +46,7 @@ impl SimulationControl<'_> {
     //ap iter_clocks
     /// Iterate through the clocks
     pub fn iter_clocks(&self) -> impl std::iter::Iterator<Item = &Clock> {
-        self.clocks.into_iter()
+        self.clocks.iter()
     }
 
     pub fn register_input_use(
@@ -56,15 +56,12 @@ impl SimulationControl<'_> {
         posedge: bool,
         negedge: bool,
     ) {
-        self.edge_uses
-            .entry(instance)
-            .or_insert_with(|| vec![])
-            .push(EdgeUse {
-                instance,
-                input,
-                posedge,
-                negedge,
-            });
+        self.edge_uses.entry(instance).or_default().push(EdgeUse {
+            instance,
+            input,
+            posedge,
+            negedge,
+        });
     }
     pub fn connect_clock(&mut self, clock: ClockIndex, instance: InstanceHandle, input: usize) {
         let Some(edge_uses) = self.edge_uses.get(&instance) else {

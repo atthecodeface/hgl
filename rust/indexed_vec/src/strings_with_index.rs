@@ -15,9 +15,9 @@ pub struct StringsWithIndex<'swi> {
 }
 
 //ip Index<Name> for StringsWithIndex
-impl<'swi> std::ops::Index<StringIndex> for StringsWithIndex<'swi> {
+impl std::ops::Index<StringIndex> for StringsWithIndex<'_> {
     type Output = str;
-    fn index<'a>(&'a self, p: StringIndex) -> &'a str {
+    fn index(&self, p: StringIndex) -> &str {
         Pin::into_inner(self.strings[p].as_ref())
     }
 }
