@@ -2,7 +2,7 @@
 use serde::{Deserialize, Serialize};
 use std::ops::{Deref, DerefMut};
 
-use crate::traits::{SimBit, SimValue};
+use crate::traits::{SimBit, SimCopyValue};
 
 //a Bit
 //tp Bit
@@ -171,8 +171,8 @@ where
     }
 }
 
-//ip SimValue for Bit
-impl SimValue for Bit {
+//ip SimCopyValue for Bit
+impl SimCopyValue for Bit {
     const BIT_WIDTH: usize = 1;
     const NYBBLE_WIDTH: usize = 1;
     const BYTE_WIDTH: usize = 1;

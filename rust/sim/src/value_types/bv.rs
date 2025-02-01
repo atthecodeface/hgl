@@ -2,7 +2,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::data::{BitRange, BitRangeMut, U8Ops};
-use crate::traits::{BvData, IsBv, SimBv, SimValue, SimValueAsU8s};
+use crate::traits::{BvData, IsBv, SimBv, SimCopyValue, SimValueAsU8s};
 
 //a BvN
 //tp BvN
@@ -315,8 +315,8 @@ where
     }
 }
 
-//ip SimValue for Bv
-impl<const NB: usize> SimValue for Bv<NB>
+//ip SimCopyValue for Bv
+impl<const NB: usize> SimCopyValue for Bv<NB>
 where
     BvN<{ NB }>: IsBv,
 {

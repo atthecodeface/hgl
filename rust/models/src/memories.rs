@@ -14,7 +14,7 @@ const STATE_INFO: &[SimStateInfo] = &[
 #[derive(Debug, Default)]
 pub struct Inputs<V, I>
 where
-    V: SimValue,
+    V: SimCopyValue,
     I: SimBv,
 {
     pub read_enable: Bit,
@@ -26,7 +26,7 @@ where
 #[derive(Debug, Default)]
 pub struct Outputs<V>
 where
-    V: SimValue,
+    V: SimCopyValue,
 {
     pub read_valid: Bit,
     pub read_data: V,
@@ -35,7 +35,7 @@ where
 #[derive(Debug, Default)]
 pub struct Memory<V, I>
 where
-    V: SimValue,
+    V: SimCopyValue,
     I: SimBv,
 {
     size: usize,
@@ -46,7 +46,7 @@ where
 
 impl<V, I> Simulatable for Memory<V, I>
 where
-    V: SimValue,
+    V: SimCopyValue,
     I: SimBv,
 {
     fn as_any(&self) -> &dyn std::any::Any {
@@ -103,7 +103,7 @@ where
 }
 impl<V, I> Component for Memory<V, I>
 where
-    V: SimValue,
+    V: SimCopyValue,
     I: SimBv,
 {
     type Config = usize;
@@ -136,7 +136,7 @@ where
 
 impl<V, I> Memory<V, I>
 where
-    V: SimValue,
+    V: SimCopyValue,
     I: SimBv,
 {
     pub fn new(size: usize) -> Self {
@@ -149,7 +149,7 @@ where
 
 impl<V, I> ComponentBuilder for Memory<V, I>
 where
-    V: SimValue,
+    V: SimCopyValue,
     I: SimBv,
 {
     type Build = Self;

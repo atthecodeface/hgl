@@ -1,8 +1,8 @@
 //a Imports
-use crate::traits::{SimBit, SimBv, SimValue, SimValueAsU8s};
+use crate::traits::{SimBit, SimBv, SimCopyValue, SimValueAsU8s};
 
 //a Trait impls for bool
-impl SimValue for bool {
+impl SimCopyValue for bool {
     const BIT_WIDTH: usize = 1;
     const NYBBLE_WIDTH: usize = 1;
     const BYTE_WIDTH: usize = 1;
@@ -11,10 +11,10 @@ impl SimValue for bool {
 
 impl SimBit for bool {}
 
-//a Macro for trait impl SimValue
+//a Macro for trait impl SimCopyValue
 macro_rules! impl_sim_value {
     ($t:ty, $nb:expr) => {
-        impl SimValue for std::num::Wrapping<$t> {
+        impl SimCopyValue for std::num::Wrapping<$t> {
             const BIT_WIDTH: usize = std::mem::size_of::<Self>() * 8;
             const NYBBLE_WIDTH: usize = std::mem::size_of::<Self>() * 2;
             const BYTE_WIDTH: usize = std::mem::size_of::<Self>();

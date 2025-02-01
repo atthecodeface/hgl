@@ -15,7 +15,7 @@ const STATE_INFO: &[SimStateInfo] = &[
 #[derive(Debug, Default)]
 pub struct Inputs<V>
 where
-    V: SimValue,
+    V: SimCopyValue,
 {
     #[allow(dead_code)]
     clk: (),
@@ -28,7 +28,7 @@ where
 #[derive(Debug, Default)]
 pub struct Outputs<V>
 where
-    V: SimValue,
+    V: SimCopyValue,
 {
     data: V,
 }
@@ -38,7 +38,7 @@ where
 #[derive(Debug, Default)]
 pub struct Register<V>
 where
-    V: SimValue,
+    V: SimCopyValue,
 {
     reset_value: Option<V>,
     inputs: Inputs<V>,
@@ -48,7 +48,7 @@ where
 //ip Register
 impl<V> Register<V>
 where
-    V: SimValue,
+    V: SimCopyValue,
 {
     //cp new
     /// Create a new [Register] with a given reset value (if not the
@@ -64,7 +64,7 @@ where
 //ip Simulatable for Register
 impl<V> Simulatable for Register<V>
 where
-    V: SimValue,
+    V: SimCopyValue,
 {
     //mp as_any
     /// Return a reference as an Any so it can be downcast
@@ -139,7 +139,7 @@ where
 //ip Component for Register
 impl<V> Component for Register<V>
 where
-    V: SimValue,
+    V: SimCopyValue,
 {
     type Config = Option<V>;
     type InputsMut<'a> = &'a mut Inputs<V>;
@@ -170,7 +170,7 @@ where
 //ip ComponentBuilder for Register
 impl<V> ComponentBuilder for Register<V>
 where
-    V: SimValue,
+    V: SimCopyValue,
 {
     type Build = Self;
     fn instantiate<S: SimRegister>(_sim: &mut S, _name: SimNsName) -> Self {

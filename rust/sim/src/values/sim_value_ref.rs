@@ -1,5 +1,5 @@
 //a Imports
-use crate::traits::{SimBit, SimBv, SimValue, SimValueObject};
+use crate::traits::{SimBit, SimBv, SimCopyValue, SimValueObject};
 
 //a SimValueRef
 //tp SimValueRef
@@ -26,7 +26,7 @@ impl<'a> SimValueRef<'a> {
     pub fn sim_value(&self) -> &dyn SimValueObject {
         self.value
     }
-    pub fn value<V: SimValue>(&self) -> Option<V> {
+    pub fn value<V: SimCopyValue>(&self) -> Option<V> {
         self.value.as_any().downcast_ref::<V>().copied()
     }
     pub fn try_as_t<V: 'static>(&self) -> Option<&V> {
@@ -96,10 +96,10 @@ impl<'a> SimValueRefMut<'a> {
     pub fn as_any(&self) -> &dyn std::any::Any {
         self.value.as_any()
     }
-    pub fn value<V: SimValue>(&self) -> Option<V> {
+    pub fn value<V: SimCopyValue>(&self) -> Option<V> {
         self.value.as_any().downcast_ref::<V>().copied()
     }
-    pub fn as_t<V: SimValue>(&self) -> &V {
+    pub fn as_t<V: SimCopyValue>(&self) -> &V {
         self.value.as_any().downcast_ref::<V>().unwrap()
     }
     pub fn try_as_u64<V: SimBv>(&self) -> Option<u64> {

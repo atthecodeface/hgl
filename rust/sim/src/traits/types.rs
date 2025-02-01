@@ -11,21 +11,57 @@ use crate::values::fmt;
 /// All simulation values must provide this
 ///
 /// This is an object-safe trait
+///
+/// This trait should generally *NOT* be implemented; instead, the
+/// SimCopyValue trait should be provided.
+///
+/// However, this trait *should* be provided for values that do not
+/// support bit copying - so a simulation value that contains a Vec or
+/// a Box
 pub trait SimValueObject: std::any::Any + std::fmt::Debug {
+    /// Return a dyn Any of this value, for downcasting
     fn as_any(&self) -> &dyn std::any::Any;
+
+    /// Get the bit_width of this value
+    ///
+    /// For bits, this is 1; for vectors it is the width; for
+    /// structures whose elements have a non-zero bit_width, this is
+    /// the sum of the elements; for arrays this is the *total* size
+    /// in bits
+    ///
+    /// For a type that is not constructable then it should be zero; a
+    /// struct containing any element with a zero bit width has a
+    /// bit-width of zero; an array of elements with a zero bit width
+    /// has bit width 0
     fn bit_width(&self) -> usize {
         0
     }
+
+    /// Return the number of subelements in this value
+    ///
+    /// Arrays return the number of elements; structures return the
+    /// number of fields; tagged unions return the number of
+    /// possible tags
     fn num_subelements(&self) -> usize {
         0
     }
+
+    /// Return a name and type for the nth element
+    ///
+    /// Arrays return the value from the array with an empty name;
+    /// structs return the value of the field with the field name;
+    /// tagged unions (enums) return the value of the object
     fn get_subelement(&self, _n: usize) -> Option<(&str, &dyn SimValueObject)> {
         None
     }
 
     //ap try_as_u8s
-    /// Try to return the data contents as a slice of u8; this should
-    /// return None if the underlying value is not Copy
+    /// Try to retrieve the *whole* value as a u8 slice
+    ///
+    /// This should return None if the underlying value is not Copy
+    ///
+    /// Return None if the value cannot be bit-copied. For example, a
+    /// `Box<>` or a `Vec<>` must return None.
     fn try_as_u8s(&self) -> Option<&[u8]> {
         None
     }
@@ -60,29 +96,74 @@ pub trait SimValueObject: std::any::Any + std::fmt::Debug {
     }
 }
 
-//it SimValueObject for T where SimValue
+//ip SimValueObject for T where SimCopyValue
+/// The [SimCopyValue] trait
+///
+// add get_tag? support enums?
 impl<T> SimValueObject for T
 where
-    T: SimValue,
+    T: SimCopyValue,
 {
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
+
+    /// For a [SimCopyValue] type the bit_width is a public constant;
+    /// return that
     fn bit_width(&self) -> usize {
-        <Self as SimValue>::BIT_WIDTH
+        <Self as SimCopyValue>::BIT_WIDTH
     }
+
+    /// For a [SimCopyValue] type the number of subelements is a public constant;
+    /// return that
     fn num_subelements(&self) -> usize {
-        <Self as SimValue>::NUM_SUBELEMENTS
+        <Self as SimCopyValue>::NUM_SUBELEMENTS
     }
+
+    /// Use the SimCopyValue method
+    ///
+    /// Arrays return the value from the array with an empty name;
+    /// structs return the value of the field with the field name;
+    /// tagged unions (enums) return the value of the object
     fn get_subelement(&self, n: usize) -> Option<(&str, &dyn SimValueObject)> {
-        <Self as SimValue>::get_subelement(self, n)
+        <Self as SimCopyValue>::get_subelement(self, n)
     }
+
+    /// Try to retrieve the *whole* value as a u8 slice
+    ///
+    /// This should be provided by any type that does not support a
+    /// bit-copy from Self; otherwise the default implementation
+    /// should be kept. Usually such an implementation returns None.
+    ///
+    /// Return None if the value cannot be bit-copied. A `Box<>` or a
+    /// `Vec<>` must return None.
+    ///
+    /// For example, an array of structs whose fields that all support
+    /// SimValueAsU8s, implemented as some form of packed array, can
+    /// return Some value.
     fn try_as_u8s(&self) -> Option<&[u8]> {
         Some(unsafe { refs::as_u8s(self) })
     }
+
+    /// Try to retrieve the value as a mutable u8 slice
+    ///
+    /// This should be provided by any type that does not support a
+    /// bit-copy from Self; otherwise the default implementation should be kept
+    ///
+    /// Returning None indicates that the value cannot be modified by bit copying
     fn try_as_u8s_mut(&mut self) -> Option<&mut [u8]> {
         Some(unsafe { refs::as_u8s_mut(self) })
     }
+
+    /// Return true if this value might equal another value
+    ///
+    /// This must be false if the types of the values are different
+    ///
+    /// If the values are simplistically different then return false;
+    /// a complex comparison should not be performed.
+    ///
+    /// This must be provided if the type has try_as_u8s() returning
+    /// None
     fn might_equal(&self, other: &dyn std::any::Any) -> bool {
         let Some(other) = other.downcast_ref::<Self>() else {
             return false;
@@ -93,27 +174,31 @@ where
         let sd = unsafe { refs::as_u8s(self) };
         sd == od
     }
+
+    /// Format the value with a given style
+    ///
+    /// This is used to generate VCD file values, for example.
     fn fmt_with(&self, fmt: &mut std::fmt::Formatter, style: usize) -> Result<(), std::fmt::Error> {
         let mut ascii_store = [b'0'; fmt::MAX_STRING_LENGTH];
         let mut ascii = ascii_store.as_mut_slice();
         let mut hdr_char = 'b';
-        if (style & fmt::AS_HEX) != 0 && (<Self as SimValue>::FMT_HEX) {
+        if (style & fmt::AS_HEX) != 0 && (<Self as SimCopyValue>::FMT_HEX) {
             assert!(
-                (<Self as SimValue>::BIT_WIDTH + 3) / 4 < fmt::MAX_STRING_LENGTH,
+                (<Self as SimCopyValue>::BIT_WIDTH + 3) / 4 < fmt::MAX_STRING_LENGTH,
                 "Need to restrict length of hex string"
             );
             hdr_char = 'h';
-            ascii = &mut ascii[0..(<Self as SimValue>::BIT_WIDTH + 3) / 4];
-            if !(<Self as SimValue>::fmt_hex(self, ascii)) {
+            ascii = &mut ascii[0..(<Self as SimCopyValue>::BIT_WIDTH + 3) / 4];
+            if !(<Self as SimCopyValue>::fmt_hex(self, ascii)) {
                 hgl_utils::fmt::fmt_hex(self, ascii);
             }
-        } else if (style & fmt::AS_BIN) != 0 && (<Self as SimValue>::FMT_BIN) {
+        } else if (style & fmt::AS_BIN) != 0 && (<Self as SimCopyValue>::FMT_BIN) {
             assert!(
-                <Self as SimValue>::BIT_WIDTH < fmt::MAX_STRING_LENGTH,
+                <Self as SimCopyValue>::BIT_WIDTH < fmt::MAX_STRING_LENGTH,
                 "Need to restrict length of hex string"
             );
-            ascii = &mut ascii[0..<Self as SimValue>::BIT_WIDTH];
-            if !(<Self as SimValue>::fmt_bin(self, ascii)) {
+            ascii = &mut ascii[0..<Self as SimCopyValue>::BIT_WIDTH];
+            if !(<Self as SimCopyValue>::fmt_bin(self, ascii)) {
                 hgl_utils::fmt::fmt_bin(self, ascii);
             }
         }
@@ -124,7 +209,7 @@ where
             write!(
                 fmt,
                 "{}{}{}",
-                <Self as SimValue>::BIT_WIDTH,
+                <Self as SimCopyValue>::BIT_WIDTH,
                 hdr_char,
                 ascii
             )
@@ -132,8 +217,9 @@ where
     }
 }
 
-//tt SimValue
-/// Trait supported by most simulatable values
+//tt SimCopyValue
+/// Trait supported by most simulatable values; specifically, those
+/// that are bit-copyable.
 ///
 /// This should be provided by every constructable value that is used
 /// in a simulation, such as values used in state, inputs, or outputs.
@@ -144,7 +230,7 @@ where
 /// simulation system for such types.
 ///
 /// This is *not* a dyn-compatible trait
-pub trait SimValue:
+pub trait SimCopyValue:
     Sized
     + Copy
     + std::default::Default
@@ -213,6 +299,7 @@ pub trait SimValueAsU8s: Sized {
     fn as_u8s_mut(&mut self) -> &mut [u8];
 }
 
+//a Standard trait aggregators - SimBitOps, SimArithOps, SimShiftOps
 //tt SimBitOps
 pub trait SimBitOps:
     Sized
@@ -232,7 +319,7 @@ pub trait SimBitOps:
 {
 }
 
-//ip SimBitOps
+//ip SimBitOps for T where it supports the required ops
 impl<T> SimBitOps for T where
     T: Sized
         + std::ops::Not<Output = Self>
@@ -265,7 +352,7 @@ pub trait SimArithOps:
 {
 }
 
-//ip SimArithOps
+//ip SimArithOps for T where it supports the required ops
 impl<T> SimArithOps for T where
     T: Sized
         + std::ops::Add<Self, Output = Self>
@@ -289,7 +376,7 @@ pub trait SimShiftOps:
 {
 }
 
-//ip SimShiftOps
+//ip SimShiftOps for T where it supports the required ops
 impl<T> SimShiftOps for T where
     T: Sized
         + std::ops::Shl<usize, Output = Self>
@@ -299,15 +386,16 @@ impl<T> SimShiftOps for T where
 {
 }
 
+//a Array, Struct, Bit, Bv traits
 //tt SimArray
-pub trait SimArray<V: SimValue>:
-    SimValue + std::ops::Index<usize, Output = V> + std::ops::IndexMut<usize>
+pub trait SimArray<V: SimCopyValue>:
+    SimCopyValue + std::ops::Index<usize, Output = V> + std::ops::IndexMut<usize>
 {
     fn num_elements(&self) -> usize;
 }
 
 //tt SimStruct
-pub trait SimStruct: SimValue + SimBitOps {}
+pub trait SimStruct: SimCopyValue + SimBitOps {}
 
 //tt SimBit
 /// Any type that can be used as a single bit value by a simulation
@@ -315,7 +403,7 @@ pub trait SimBit
 where
     bool: From<Self>,
     for<'a> &'a bool: From<&'a Self>,
-    Self: SimValue + SimBitOps + From<bool> + std::cmp::PartialOrd + std::cmp::Ord,
+    Self: SimCopyValue + SimBitOps + From<bool> + std::cmp::PartialOrd + std::cmp::Ord,
 {
     fn randomize<F: FnMut() -> u64>(f: &mut F) -> Self {
         ((f() & 1) != 0).into()
@@ -336,7 +424,7 @@ where
 /// A trait required to be supported by types that can be used as
 /// bit-vectors by the simulation
 pub trait SimBv:
-    SimValue
+    SimCopyValue
     + std::cmp::PartialOrd
     + std::cmp::Ord
     + SimBitOps

@@ -7,7 +7,7 @@ use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use hgl_indexed_vec::make_index;
 
 use crate::simulation::{Name, Names, SimNsName, SimStateIndex, Simulation, StateDesc};
-use crate::traits::{Component, SimBit, SimBv, SimValue, Simulatable};
+use crate::traits::{Component, SimBit, SimBv, SimCopyValue, Simulatable};
 use crate::values::fmt;
 
 //a InstanceHandle
@@ -84,13 +84,13 @@ impl<C: Component + 'static> RefInstance<'_, C> {
     pub fn outputs(&self) -> C::Outputs<'_> {
         self.l.as_any().downcast_ref::<C>().unwrap().outputs()
     }
-    pub fn try_as_t<V: SimValue>(&self, s: SimStateIndex) -> Option<V> {
+    pub fn try_as_t<V: SimCopyValue>(&self, s: SimStateIndex) -> Option<V> {
         self.l.as_any().downcast_ref::<C>().and_then(|c| {
             c.try_state_data(s)
                 .and_then(|sd| sd.try_as_t::<V>().copied())
         })
     }
-    pub fn as_t<V: SimValue>(&self, s: SimStateIndex) -> V {
+    pub fn as_t<V: SimCopyValue>(&self, s: SimStateIndex) -> V {
         self.try_as_t(s).unwrap()
     }
     pub fn try_as_u64<V: SimBv>(&self, s: SimStateIndex) -> Option<u64> {
