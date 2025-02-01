@@ -3,6 +3,17 @@ use crate::traits::{SimBit, SimBv, SimValue, SimValueObject};
 
 //a SimValueRef
 //tp SimValueRef
+/// An immutable reference to a simulation value, usually belonging to
+/// an instance of a component, that can be accessed as 'state data'
+/// from a user of a Simulation
+///
+/// It holds a reference to the value, which must provide
+/// [SimValueObject]; that trait provide an 'as_any' method, so a
+/// SimValueRef can have its value borrowed as a dyn Any and downcast
+/// appropriately if required.
+///
+/// However, to make access simpler to the underlying type, 'as_t' and
+/// 'try_as_t' methods attempt to downcast directly to a type.
 #[derive(Debug)]
 pub struct SimValueRef<'a> {
     value: &'a (dyn SimValueObject),
@@ -18,10 +29,10 @@ impl<'a> SimValueRef<'a> {
     pub fn value<V: SimValue>(&self) -> Option<V> {
         self.value.as_any().downcast_ref::<V>().copied()
     }
-    pub fn try_as_t<V: SimValue>(&self) -> Option<&V> {
+    pub fn try_as_t<V: 'static>(&self) -> Option<&V> {
         self.value.as_any().downcast_ref::<V>()
     }
-    pub fn as_t<V: SimValue>(&self) -> &V {
+    pub fn as_t<V: 'static>(&self) -> &V {
         self.try_as_t().unwrap()
     }
     pub fn try_as_u64<V: SimBv>(&self) -> Option<u64> {

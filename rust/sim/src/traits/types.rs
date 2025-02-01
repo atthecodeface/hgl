@@ -8,7 +8,7 @@ use crate::values::fmt;
 //tt SimValueObject
 /// Trait supported by SimBit, SimBv, etc
 ///
-/// All values must provide this
+/// All simulation values must provide this
 ///
 /// This is an object-safe trait
 pub trait SimValueObject: std::any::Any + std::fmt::Debug {
@@ -135,6 +135,14 @@ where
 //tt SimValue
 /// Trait supported by most simulatable values
 ///
+/// This should be provided by every constructable value that is used
+/// in a simulation, such as values used in state, inputs, or outputs.
+///
+/// This trait might not be provided for *some* storage in a simulated
+/// component - such as a log file; managing checkpoint/restore,
+/// waveform generation, and so on, are outside the scope of the
+/// simulation system for such types.
+///
 /// This is *not* a dyn-compatible trait
 pub trait SimValue:
     Sized
@@ -171,26 +179,62 @@ pub trait SimValue:
     }
 }
 
-//tt SimArray
-pub trait SimArray<V: SimValue>:
-    SimValue + std::ops::Index<usize, Output = V> + std::ops::IndexMut<usize>
-{
-    fn num_elements(&self) -> usize;
+//tt Checkpointer
+/// Modeled on serde's Serializer trait; the result of a checkpoint
+/// requires the error to support the std Error trait, where serde's
+/// Serializer needs the Serde error trait
+pub trait Checkpointer: Sized {
+    type Ok;
+    type Error: std::error::Error;
+    fn checkpoint_u8s(self, data: &[u8]) -> Result<Self::Ok, Self::Error>;
+    fn checkpoint_sparse_u8s(self, data: &[u8]) -> Result<Self::Ok, Self::Error> {
+        self.checkpoint_u8s(data)
+    }
 }
 
-//tt SimStruct
-pub trait SimStruct: SimValue {}
+//tt SimCheckpoint
+pub trait SimCheckpoint: Sized {
+    fn checkpoint<C: Checkpointer>(&self, checkpointer: &C) -> Result<C::Ok, C::Error>;
+    fn restore<C: Checkpointer>(&mut self, checkpointer: &C) -> Result<C::Ok, C::Error>;
+}
 
-//tt SimBit
-/// Any type that can be used as a single bit value by a simulation
-pub trait SimBit
-where
-    bool: From<Self>,
-    for<'a> &'a bool: From<&'a Self>,
-    Self: SimValue
-        + From<bool>
-        + std::cmp::PartialOrd
-        + std::cmp::Ord
+//tt SimValueAsU8s
+pub trait SimValueAsU8s: Sized {
+    //ap as_u8s
+    /// Return the data contents as a slice of u8
+    ///
+    /// This cannot fail
+    fn as_u8s(&self) -> &[u8];
+
+    //ap as_u8s_mut
+    /// Return the data contents as a mutable slice of u8
+    ///
+    /// This cannot fail
+    fn as_u8s_mut(&mut self) -> &mut [u8];
+}
+
+//tt SimBitOps
+pub trait SimBitOps:
+    Sized
+    + std::ops::Not<Output = Self>
+    + std::ops::BitAnd<Self, Output = Self>
+    + std::ops::BitAndAssign<Self>
+    + for<'a> std::ops::BitAnd<&'a Self, Output = Self>
+    + for<'a> std::ops::BitAndAssign<&'a Self>
+    + std::ops::BitOr<Self, Output = Self>
+    + std::ops::BitOrAssign<Self>
+    + for<'a> std::ops::BitOr<&'a Self, Output = Self>
+    + for<'a> std::ops::BitOrAssign<&'a Self>
+    + std::ops::BitXor<Self, Output = Self>
+    + std::ops::BitXorAssign<Self>
+    + for<'a> std::ops::BitXor<&'a Self, Output = Self>
+    + for<'a> std::ops::BitXorAssign<&'a Self>
+{
+}
+
+//ip SimBitOps
+impl<T> SimBitOps for T where
+    T: Sized
         + std::ops::Not<Output = Self>
         + std::ops::BitAnd<Self, Output = Self>
         + std::ops::BitAndAssign<Self>
@@ -203,7 +247,75 @@ where
         + std::ops::BitXor<Self, Output = Self>
         + std::ops::BitXorAssign<Self>
         + for<'a> std::ops::BitXor<&'a Self, Output = Self>
-        + for<'a> std::ops::BitXorAssign<&'a Self>,
+        + for<'a> std::ops::BitXorAssign<&'a Self>
+{
+}
+
+//tt SimArithOps
+pub trait SimArithOps:
+    Sized
+    + std::ops::Add<Self, Output = Self>
+    + std::ops::AddAssign<Self>
+    + for<'a> std::ops::Add<&'a Self, Output = Self>
+    + for<'a> std::ops::AddAssign<&'a Self>
+    + std::ops::Sub<Self, Output = Self>
+    + std::ops::SubAssign<Self>
+    + for<'a> std::ops::Sub<&'a Self, Output = Self>
+    + for<'a> std::ops::SubAssign<&'a Self>
+{
+}
+
+//ip SimArithOps
+impl<T> SimArithOps for T where
+    T: Sized
+        + std::ops::Add<Self, Output = Self>
+        + std::ops::AddAssign<Self>
+        + for<'a> std::ops::Add<&'a Self, Output = Self>
+        + for<'a> std::ops::AddAssign<&'a Self>
+        + std::ops::Sub<Self, Output = Self>
+        + std::ops::SubAssign<Self>
+        + for<'a> std::ops::Sub<&'a Self, Output = Self>
+        + for<'a> std::ops::SubAssign<&'a Self>
+{
+}
+
+//tt SimShiftOps
+pub trait SimShiftOps:
+    Sized
+    + std::ops::Shl<usize, Output = Self>
+    + std::ops::ShlAssign<usize>
+    + std::ops::Shr<usize, Output = Self>
+    + std::ops::ShrAssign<usize>
+{
+}
+
+//ip SimShiftOps
+impl<T> SimShiftOps for T where
+    T: Sized
+        + std::ops::Shl<usize, Output = Self>
+        + std::ops::ShlAssign<usize>
+        + std::ops::Shr<usize, Output = Self>
+        + std::ops::ShrAssign<usize>
+{
+}
+
+//tt SimArray
+pub trait SimArray<V: SimValue>:
+    SimValue + std::ops::Index<usize, Output = V> + std::ops::IndexMut<usize>
+{
+    fn num_elements(&self) -> usize;
+}
+
+//tt SimStruct
+pub trait SimStruct: SimValue + SimBitOps {}
+
+//tt SimBit
+/// Any type that can be used as a single bit value by a simulation
+pub trait SimBit
+where
+    bool: From<Self>,
+    for<'a> &'a bool: From<&'a Self>,
+    Self: SimValue + SimBitOps + From<bool> + std::cmp::PartialOrd + std::cmp::Ord,
 {
     fn randomize<F: FnMut() -> u64>(f: &mut F) -> Self {
         ((f() & 1) != 0).into()
@@ -227,31 +339,10 @@ pub trait SimBv:
     SimValue
     + std::cmp::PartialOrd
     + std::cmp::Ord
-    + std::ops::Not<Output = Self>
-    + std::ops::BitAnd<Self, Output = Self>
-    + std::ops::BitAndAssign<Self>
-    + for<'a> std::ops::BitAnd<&'a Self, Output = Self>
-    + for<'a> std::ops::BitAndAssign<&'a Self>
-    + std::ops::BitOr<Self, Output = Self>
-    + std::ops::BitOrAssign<Self>
-    + for<'a> std::ops::BitOr<&'a Self, Output = Self>
-    + for<'a> std::ops::BitOrAssign<&'a Self>
-    + std::ops::BitXor<Self, Output = Self>
-    + std::ops::BitXorAssign<Self>
-    + for<'a> std::ops::BitXor<&'a Self, Output = Self>
-    + for<'a> std::ops::BitXorAssign<&'a Self>
-    + std::ops::Add<Self, Output = Self>
-    + std::ops::AddAssign<Self>
-    + for<'a> std::ops::Add<&'a Self, Output = Self>
-    + for<'a> std::ops::AddAssign<&'a Self>
-    + std::ops::Sub<Self, Output = Self>
-    + std::ops::SubAssign<Self>
-    + for<'a> std::ops::Sub<&'a Self, Output = Self>
-    + for<'a> std::ops::SubAssign<&'a Self>
-    + std::ops::Shl<usize, Output = Self>
-    + std::ops::ShlAssign<usize>
-    + std::ops::Shr<usize, Output = Self>
-    + std::ops::ShrAssign<usize>
+    + SimBitOps
+    + SimArithOps
+    + SimShiftOps
+    + SimValueAsU8s
 {
     //cp randomize
     /// Create a random value, given a function that returns random numbers
@@ -292,18 +383,6 @@ pub trait SimBv:
             value >>= 8;
         }
     }
-
-    //ap as_u8s
-    /// Return the data contents as a slice of u8
-    ///
-    /// This cannot fail
-    fn as_u8s(&self) -> &[u8];
-
-    //ap as_u8s
-    /// Return the data contents as a mutable slice of u8
-    ///
-    /// This cannot fail
-    fn as_u8s_mut(&mut self) -> &mut [u8];
 
     //mp signed_neg
     /// Treating the value as signed, perform a two's complement

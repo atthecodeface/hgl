@@ -1,5 +1,5 @@
 //a Imports
-use crate::traits::{SimBit, SimBv, SimValue};
+use crate::traits::{SimBit, SimBv, SimValue, SimValueAsU8s};
 
 //a Trait impls for bool
 impl SimValue for bool {
@@ -21,16 +21,7 @@ macro_rules! impl_sim_value {
             const FMT_HEX: bool = true;
             const FMT_BIN: bool = true;
         }
-    };
-}
-
-//a Macro for trait impl SimBv
-macro_rules! impl_sim_bv {
-    ($t:ty, $nb:expr) => {
-        impl SimBv for std::num::Wrapping<$t> {
-            fn num_bits(&self) -> usize {
-                $nb
-            }
+        impl SimValueAsU8s for std::num::Wrapping<$t> {
             fn as_u8s(&self) -> &[u8] {
                 use std::num::Wrapping;
                 unsafe {
@@ -42,6 +33,17 @@ macro_rules! impl_sim_bv {
                 unsafe {
                     std::slice::from_raw_parts_mut(self as *mut Wrapping<$t> as *mut u8, $nb / 8)
                 }
+            }
+        }
+    };
+}
+
+//a Macro for trait impl SimBv
+macro_rules! impl_sim_bv {
+    ($t:ty, $nb:expr) => {
+        impl SimBv for std::num::Wrapping<$t> {
+            fn num_bits(&self) -> usize {
+                $nb
             }
             fn try_as_u64s(&self) -> Option<&[u64]> {
                 use std::num::Wrapping;

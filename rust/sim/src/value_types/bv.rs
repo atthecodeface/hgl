@@ -2,7 +2,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::data::{BitRange, BitRangeMut, U8Ops};
-use crate::traits::{BvData, IsBv, SimBv, SimValue};
+use crate::traits::{BvData, IsBv, SimBv, SimValue, SimValueAsU8s};
 
 //a BvN
 //tp BvN
@@ -327,6 +327,19 @@ where
     const FMT_BIN: bool = true;
 }
 
+//ip SimValueAsU8s for Bv
+impl<const NB: usize> SimValueAsU8s for Bv<NB>
+where
+    BvN<{ NB }>: IsBv,
+{
+    fn as_u8s(&self) -> &[u8] {
+        self.data.as_u8s::<NB>()
+    }
+    fn as_u8s_mut(&mut self) -> &mut [u8] {
+        self.data.as_u8s_mut::<NB>()
+    }
+}
+
 //ip SimBv for Bv
 impl<const NB: usize> SimBv for Bv<NB>
 where
@@ -335,12 +348,6 @@ where
     #[inline]
     fn num_bits(&self) -> usize {
         NB
-    }
-    fn as_u8s(&self) -> &[u8] {
-        self.data.as_u8s::<NB>()
-    }
-    fn as_u8s_mut(&mut self) -> &mut [u8] {
-        self.data.as_u8s_mut::<NB>()
     }
     fn signed_neg(self) -> Self {
         let mut s = Self::default();
