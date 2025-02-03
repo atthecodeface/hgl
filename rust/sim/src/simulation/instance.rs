@@ -1,8 +1,6 @@
 //a Imports
-use std::cell::RefCell;
+use std::cell::{Ref, RefCell, RefMut};
 use std::collections::HashMap;
-use std::marker::PhantomData;
-use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use hgl_indexed_vec::make_index;
 
@@ -20,8 +18,19 @@ make_index!(InstanceHandle, usize);
 //tp Instance
 /// Toplevel instance of a component
 ///
-/// This probably needs to have some Sync wrapper so that different
-/// Instance's can be clocked simultaneously
+///
+/// The underlying `Simulatable` may have some of its code executed
+/// from within a work pool thread, and different instances will be
+/// being executed (and hence mutated) from different work pool
+/// threads.
+///
+/// Hence the `Simulatable` is held in a RefCell
+///
+/// Some `Simulatable` instances (such as virtual machines) may run in
+/// separate threads entirely; in this case the `Simulatable` is
+/// merely an interface abstraction to the other threads, and it must
+/// contain the appropriate concurrent execution handling required to
+/// interact with the simulatable.
 pub struct Instance {
     name: SimNsName,
 
@@ -34,8 +43,10 @@ pub struct Instance {
     /// If a component model has a thread of execution it should idle
     /// until it receives a message from the engine thread (due to a
     /// 'clock', 'propagate', or similar call; such calls
-    simulatable: RwLock<Box<dyn Simulatable + 'static>>,
+    simulatable: RefCell<Box<dyn Simulatable + 'static>>,
 
+    /// The description of exposed state for the `Simulatable`; this
+    /// may only be interrogated if the simulatable has been paused
     state_map: RefCell<HashMap<Name, StateDesc>>,
 }
 
@@ -51,7 +62,7 @@ impl Instance {
     //cp new
     pub fn new<S: Simulatable + 'static>(name: SimNsName, s: S) -> Self {
         let s: Box<dyn Simulatable + 'static> = Box::new(s);
-        let simulatable = RwLock::new(s);
+        let simulatable = RefCell::new(s);
         let state_map = RefCell::new(HashMap::default());
         Self {
             name,
@@ -79,8 +90,8 @@ impl Instance {
 
     //ap borrow_sim_mut
     /// Borrow the instance mutably as a Simulatable
-    pub fn borrow_sim_mut(&self) -> Option<RwLockWriteGuard<'_, Box<dyn Simulatable>>> {
-        match self.simulatable.try_write() {
+    pub fn borrow_sim_mut(&self) -> Option<RefMut<'_, Box<dyn Simulatable>>> {
+        match self.simulatable.try_borrow_mut() {
             Ok(l) => Some(l),
             Err(_) => None,
         }
@@ -88,8 +99,8 @@ impl Instance {
 
     //ap borrow_sim
     /// Borrow the instance immutably as a Simulatable
-    pub fn borrow_sim(&self) -> Option<RwLockReadGuard<'_, Box<dyn Simulatable>>> {
-        let l = self.simulatable.try_read();
+    pub fn borrow_sim(&self) -> Option<Ref<'_, Box<dyn Simulatable>>> {
+        let l = self.simulatable.try_borrow();
         match l {
             Ok(l) => Some(l),
             Err(_) => None,
@@ -138,7 +149,7 @@ impl Instance {
         for (n, p) in self.state_map.borrow().iter() {
             names.fmt_name(fmt, *n)?;
             if include_values {
-                if let Ok(s) = self.simulatable.try_read() {
+                if let Ok(s) = self.simulatable.try_borrow() {
                     fmt.write_str("=")?;
                     if let Some(x) = s.try_state_data(p.state_index()) {
                         x.sim_value().fmt_with(fmt, fmt::FULL)?;

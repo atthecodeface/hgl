@@ -1,6 +1,6 @@
 //a Imports
+use std::cell::{Ref, RefCell, RefMut};
 use std::marker::PhantomData;
-use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use crate::simulation::SimStateIndex;
 use crate::traits::{Component, SimBit, SimBv, SimCopyValue, Simulatable};
@@ -8,7 +8,7 @@ use crate::traits::{Component, SimBit, SimBv, SimCopyValue, Simulatable};
 //a RefMutInstance
 //tp RefMutInstance
 pub struct RefMutInstance<'a, C: Component + 'static> {
-    l: RwLockWriteGuard<'a, Box<dyn Simulatable + 'static>>,
+    l: RefMut<'a, Box<dyn Simulatable + 'static>>,
     phantom: PhantomData<&'a C>,
 }
 
@@ -31,9 +31,9 @@ impl<C: Component + 'static> std::ops::DerefMut for RefMutInstance<'_, C> {
 impl<'a, C: Component + 'static> RefMutInstance<'a, C> {
     //cp try_ref_mut_instance
     pub fn try_ref_mut_instance(
-        rwlock: &'a RwLock<Box<dyn Simulatable + 'static>>,
+        rwlock: &'a RefCell<Box<dyn Simulatable + 'static>>,
     ) -> Option<Self> {
-        let l = rwlock.try_write();
+        let l = rwlock.try_borrow_mut();
         match l {
             Ok(l) => Some(Self {
                 l,
@@ -66,7 +66,7 @@ impl<'a, C: Component + 'static> RefMutInstance<'a, C> {
 //a RefInstance
 //tp RefInstance
 pub struct RefInstance<'a, C: Component + 'static> {
-    l: RwLockReadGuard<'a, Box<dyn Simulatable + 'static>>,
+    l: Ref<'a, Box<dyn Simulatable + 'static>>,
     phantom: PhantomData<&'a C>,
 }
 
@@ -81,8 +81,8 @@ impl<C: Component + 'static> std::ops::Deref for RefInstance<'_, C> {
 //ip RefInstance
 impl<'a, C: Component + 'static> RefInstance<'a, C> {
     //cp try_ref_instance
-    pub fn try_ref_instance(rwlock: &'a RwLock<Box<dyn Simulatable + 'static>>) -> Option<Self> {
-        let l = rwlock.try_read();
+    pub fn try_ref_instance(rwlock: &'a RefCell<Box<dyn Simulatable + 'static>>) -> Option<Self> {
+        let l = rwlock.try_borrow();
         match l {
             Ok(l) => Some(Self {
                 l,
