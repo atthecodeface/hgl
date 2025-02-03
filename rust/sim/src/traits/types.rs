@@ -19,9 +19,11 @@ use crate::values::fmt;
 /// support bit copying - so a simulation value that contains a Vec or
 /// a Box
 pub trait SimValueObject: std::any::Any + std::fmt::Debug {
+    //mp as_any
     /// Return a dyn Any of this value, for downcasting
     fn as_any(&self) -> &dyn std::any::Any;
 
+    //mp bit_width
     /// Get the bit_width of this value
     ///
     /// For bits, this is 1; for vectors it is the width; for
@@ -37,6 +39,7 @@ pub trait SimValueObject: std::any::Any + std::fmt::Debug {
         0
     }
 
+    //mp num_subelements
     /// Return the number of subelements in this value
     ///
     /// Arrays return the number of elements; structures return the
@@ -46,6 +49,7 @@ pub trait SimValueObject: std::any::Any + std::fmt::Debug {
         0
     }
 
+    //mp get_subelement
     /// Return a name and type for the nth element
     ///
     /// Arrays return the value from the array with an empty name;
@@ -279,9 +283,9 @@ pub trait Checkpointer: Sized {
 }
 
 //tt SimCheckpoint
-pub trait SimCheckpoint: Sized {
-    fn checkpoint<C: Checkpointer>(&self, checkpointer: &C) -> Result<C::Ok, C::Error>;
-    fn restore<C: Checkpointer>(&mut self, checkpointer: &C) -> Result<C::Ok, C::Error>;
+pub trait SimCheckpoint<C: Checkpointer>: Sized {
+    fn checkpoint(&self, checkpointer: &C) -> Result<C::Ok, C::Error>;
+    fn restore(&mut self, checkpointer: &C) -> Result<C::Ok, C::Error>;
 }
 
 //tt SimValueAsU8s

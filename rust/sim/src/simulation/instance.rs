@@ -130,6 +130,10 @@ pub struct Instance {
     ///
     /// This is wrapped in a [RwLock] so that multiple instances may
     /// be simulated by different threads at the same time
+    ///
+    /// If a component model has a thread of execution it should idle
+    /// until it receives a message from the engine thread (due to a
+    /// 'clock', 'propagate', or similar call; such calls
     simulatable: RwLock<Box<dyn Simulatable + 'static>>,
 
     state_map: RefCell<HashMap<Name, StateDesc>>,

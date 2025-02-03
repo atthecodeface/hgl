@@ -8,9 +8,16 @@ use crate::values::{SimValueRef, SimValueRefMut};
 /// that can be simulated
 ///
 /// Such types are constructed by a [ComponentBuilder]
+///
+/// The component builder has an 'instantiate' method invoked with a
 pub trait SimHandle: Sized + Copy {}
 
 //tt SimRegister
+/// This trait is implemented by simulations to permit component
+/// builders to instantiate instances of components with the
+/// simulation.
+///
+/// This trait is not dyn-compatible as it contains the `Handle` type
 pub trait SimRegister {
     //tp Handle
     /// The handle used by the simulation to presented to an instance
@@ -83,8 +90,84 @@ pub trait SimRegister {
     );
 }
 
-//a Simulatable component traits
+//a Component, ComponentBuilder, and Simulatable component traits
+//tt Simulatable
+/// This trait is dyn-compatible; it is in general used as `Box<dyn Simulatable + 'static>`
+///
+/// Should this take a lifetime of the simulation? Then as_any could
+/// return it with that lifetime? ValueRef would have that lifetime?
+///
+/// A 'ready' method? Poll method?
+///
+/// If clock can return std::task::Poll::Pending, then the method should be passed a std::task::Waker?
+pub trait Simulatable: std::any::Any {
+    //mp as_any
+    /// Return the instance as a 'dyn Any', so it can be downcast
+    fn as_any(&self) -> &dyn std::any::Any;
+
+    //mp as_mut_any
+    /// Return the instance as a mutable 'dyn Any', so it can be downcast
+    fn as_mut_any(&mut self) -> &mut dyn std::any::Any;
+
+    //mp reset
+    /// Reset the component
+    ///
+    /// The reason could be simulation restart, or something 'weaker'
+    fn reset(&mut self, _reason: SimReset) {}
+
+    //mp clock
+    /// Clock the component, with mask indicating which edges have occurred
+    ///
+    /// This should use the values in its Inputs, and update its outputs.
+    ///
+    /// This might return a 'not ready' indication; or something that
+    /// might be polled for completion.  If not ready is returned then
+    /// no other calls to the component can be issued until ready is
+    /// indicated
+    fn clock(&mut self, _mask: SimEdgeMask) {}
+
+    //mp propagate
+    /// Propagate inputs through combinational paths and to all submodules
+    ///
+    /// This is not invoked for clocked-only modules, except when
+    /// generating waveforms (or equivalent)
+    ///
+    /// For modules that declare (at config time) they have
+    /// comb_path's, this will be called once for each such
+    /// invocation, after any event that might change the inputs. The
+    /// 'stage' indicates which set of inputs will now be valid (hence
+    /// it is increased on each call, starting at 0 for the first
+    /// after a clock edge)
+    fn propagate(&mut self, _stage: usize) {}
+
+    //ap state_info
+    /// Return some of the state information
+    ///
+    /// The SimStateInfo indicates whether the state is an input, output,
+    /// clock, internal state, etc
+    ///
+    /// If this returns None then the index is larger than the visible
+    /// state of the component
+    fn state_info(&self, index: SimStateIndex) -> Option<SimStateInfo>;
+
+    //ap try_state_data
+    /// Return state *data* for an index that matches that for
+    /// state_info, if the data provides SimValueObject
+    fn try_state_data(&self, _index: SimStateIndex) -> Option<SimValueRef> {
+        None
+    }
+
+    //ap try_state_data_mut
+    /// Return mutable state *data* for an index that matches that for
+    /// state_info, if the data provides SimValueObject
+    fn try_state_data_mut(&mut self, _index: SimStateIndex) -> Option<SimValueRefMut> {
+        None
+    }
+}
+
 //tt ComponentBuilder
+/// This trait is provided by types that can create instances of a
+/// component within a specific simulation
 pub trait ComponentBuilder {
     //tp Build
     /// Type that is built by this builder
@@ -97,6 +180,12 @@ pub trait ComponentBuilder {
 }
 
 //tt Component
+/// This trait is not dyn-compatible
+///
+/// The use of methods for types supporting this trait is usually
+/// through borrowing (possibly immutably) and instance of a component
+/// within a simulation using its *known* component type; for example
+/// to copy data from its outputs, or to set some of its inputs.
 pub trait Component: Simulatable {
     //tp Config
     /// Type that is used for
@@ -145,65 +234,4 @@ pub trait Component: Simulatable {
     //ap outputs
     /// Borrow the outputs as immutable
     fn outputs(&self) -> Self::Outputs<'_>;
-}
-
-//tt Simulatable
-pub trait Simulatable: std::any::Any {
-    //mp as_any
-    /// Return the instance as a 'dyn Any', so it can be downcast
-    fn as_any(&self) -> &dyn std::any::Any;
-
-    //mp as_mut_any
-    /// Return the instance as a mutable 'dyn Any', so it can be downcast
-    fn as_mut_any(&mut self) -> &mut dyn std::any::Any;
-
-    //mp reset
-    /// Reset the component
-    ///
-    /// The reason could be simulation restart, or something 'weaker'
-    fn reset(&mut self, _reason: SimReset) {}
-
-    //mp clock
-    /// Clock the component, with mask indicating which edges have occurred
-    ///
-    /// This should use the values in its Inputs, and update its outputs.
-    fn clock(&mut self, _mask: SimEdgeMask) {}
-
-    //mp propagate
-    /// Propagate inputs through combinational paths and to all submodules
-    ///
-    /// This is not invoked for clocked-only modules, except when
-    /// generating waveforms (or equivalent)
-    ///
-    /// For modules that declare (at config time) they have
-    /// comb_path's, this will be called once for each such
-    /// invocation, after any event that might change the inputs. The
-    /// 'stage' indicates which set of inputs will now be valid (hence
-    /// it is increased on each call, starting at 0 for the first
-    /// after a clock edge)
-    fn propagate(&mut self, _stage: usize) {}
-
-    //ap state_info
-    /// Return some of the state information
-    ///
-    /// The SimStateInfo indicates whether the state is an input, output,
-    /// clock, internal state, etc
-    ///
-    /// If this returns None then the index is larger than the visible
-    /// state of the component
-    fn state_info(&self, index: SimStateIndex) -> Option<SimStateInfo>;
-
-    //ap try_state_data
-    /// Return state *data* for an index that matches that for
-    /// state_info, if the data provides SimValueObject
-    fn try_state_data(&self, _index: SimStateIndex) -> Option<SimValueRef> {
-        None
-    }
-
-    //ap try_state_data_mut
-    /// Return mutable state *data* for an index that matches that for
-    /// state_info, if the data provides SimValueObject
-    fn try_state_data_mut(&mut self, _index: SimStateIndex) -> Option<SimValueRefMut> {
-        None
-    }
 }
