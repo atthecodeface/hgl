@@ -14,6 +14,22 @@ impl SimBit for bool {}
 //a Macro for trait impl SimCopyValue
 macro_rules! impl_sim_value {
     ($t:ty, $nb:expr) => {
+        impl SimCopyValue for $t {
+            const BIT_WIDTH: usize = std::mem::size_of::<Self>() * 8;
+            const NYBBLE_WIDTH: usize = std::mem::size_of::<Self>() * 2;
+            const BYTE_WIDTH: usize = std::mem::size_of::<Self>();
+            const FMT_HEX: bool = true;
+            const FMT_BIN: bool = true;
+        }
+        impl SimValueAsU8s for $t {
+            fn as_u8s(&self) -> &[u8] {
+                unsafe { std::slice::from_raw_parts(self as *const $t as *const u8, $nb / 8) }
+            }
+            fn as_u8s_mut(&mut self) -> &mut [u8] {
+                unsafe { std::slice::from_raw_parts_mut(self as *mut $t as *mut u8, $nb / 8) }
+            }
+        }
+
         impl SimCopyValue for std::num::Wrapping<$t> {
             const BIT_WIDTH: usize = std::mem::size_of::<Self>() * 8;
             const NYBBLE_WIDTH: usize = std::mem::size_of::<Self>() * 2;

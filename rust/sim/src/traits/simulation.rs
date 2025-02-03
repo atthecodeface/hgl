@@ -117,6 +117,16 @@ pub trait Simulatable: std::any::Any {
     /// The reason could be simulation restart, or something 'weaker'
     fn reset(&mut self, _reason: SimReset) {}
 
+    //mp pause
+    /// Inform the simulatable that the simulation has been paused
+    ///
+    /// State will only be accessed when the simulation is paused
+    fn pause(&mut self) {}
+
+    //mp resume
+    /// Inform the simulatable that the simulation has been resumed
+    fn resume(&mut self) {}
+
     //mp clock
     /// Clock the component, with mask indicating which edges have occurred
     ///
@@ -126,6 +136,8 @@ pub trait Simulatable: std::any::Any {
     /// might be polled for completion.  If not ready is returned then
     /// no other calls to the component can be issued until ready is
     /// indicated
+    ///
+    /// This method will only be invoked when the simulation has been resumed
     fn clock(&mut self, _mask: SimEdgeMask) {}
 
     //mp propagate
@@ -140,6 +152,8 @@ pub trait Simulatable: std::any::Any {
     /// 'stage' indicates which set of inputs will now be valid (hence
     /// it is increased on each call, starting at 0 for the first
     /// after a clock edge)
+    ///
+    /// This method will only be invoked when the simulation has been resumed
     fn propagate(&mut self, _stage: usize) {}
 
     //ap state_info
@@ -150,11 +164,15 @@ pub trait Simulatable: std::any::Any {
     ///
     /// If this returns None then the index is larger than the visible
     /// state of the component
+    ///
+    /// This method will only be invoked when the simulation has been paused
     fn state_info(&self, index: SimStateIndex) -> Option<SimStateInfo>;
 
     //ap try_state_data
     /// Return state *data* for an index that matches that for
     /// state_info, if the data provides SimValueObject
+    ///
+    /// This method will only be invoked when the simulation has been paused
     fn try_state_data(&self, _index: SimStateIndex) -> Option<SimValueRef> {
         None
     }
@@ -162,6 +180,8 @@ pub trait Simulatable: std::any::Any {
     //ap try_state_data_mut
     /// Return mutable state *data* for an index that matches that for
     /// state_info, if the data provides SimValueObject
+    ///
+    /// This method will only be invoked when the simulation has been paused
     fn try_state_data_mut(&mut self, _index: SimStateIndex) -> Option<SimValueRefMut> {
         None
     }
