@@ -68,21 +68,13 @@ impl Instance {
     //ap borrow_mut
     /// Borrow the instance mutably as the correct [Component] type
     pub fn borrow_mut<C: Component + 'static>(&self) -> Option<RefMutInstance<'_, C>> {
-        let l = self.simulatable.try_write();
-        match l {
-            Ok(l) => Some(RefMutInstance::of_lock_guard(l)),
-            Err(_) => None,
-        }
+        RefMutInstance::try_ref_mut_instance(&self.simulatable)
     }
 
     //ap borrow
-    /// Borrow the instance immutably as the correct [Component] type
+    /// Borrow the instance mutably as the correct [Component] type
     pub fn borrow<C: Component + 'static>(&self) -> Option<RefInstance<'_, C>> {
-        let l = self.simulatable.try_read();
-        match l {
-            Ok(l) => Some(RefInstance::of_lock_guard(l)),
-            Err(_) => None,
-        }
+        RefInstance::try_ref_instance(&self.simulatable)
     }
 
     //ap borrow_sim_mut
