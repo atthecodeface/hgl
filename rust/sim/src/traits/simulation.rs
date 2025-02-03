@@ -94,8 +94,10 @@ pub trait SimRegister {
 //tt Simulatable
 /// This trait is dyn-compatible; it is in general used as `Box<dyn Simulatable + 'static>`
 ///
-/// Should this take a lifetime of the simulation? Then as_any could
-/// return it with that lifetime? ValueRef would have that lifetime?
+/// This cannot take a lifetime, as the 'Any' trait is used to
+/// downcast values of types that support this trait into specific
+/// `Component` instances, and `Any` requires 'static (as values of
+/// the same type with different lifetimes have the same type_id).
 ///
 /// A 'ready' method? Poll method?
 ///
