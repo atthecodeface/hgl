@@ -6,115 +6,15 @@ use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use hgl_indexed_vec::make_index;
 
-use crate::simulation::{Name, Names, SimNsName, SimStateIndex, Simulation, StateDesc};
-use crate::traits::{Component, SimBit, SimBv, SimCopyValue, Simulatable};
+use crate::simulation::{
+    Name, Names, RefInstance, RefMutInstance, SimNsName, SimStateIndex, Simulation, StateDesc,
+};
+use crate::traits::{Component, Simulatable};
 use crate::values::fmt;
 
 //a InstanceHandle
 //tp InstanceHandle
 make_index!(InstanceHandle, usize);
-
-//a RefMutInstance
-//tp RefMutInstance
-pub struct RefMutInstance<'a, C: Component + 'static> {
-    l: RwLockWriteGuard<'a, Box<dyn Simulatable + 'static>>,
-    phantom: PhantomData<&'a C>,
-}
-
-//tp Deref for RefMutInstance
-impl<C: Component + 'static> std::ops::Deref for RefMutInstance<'_, C> {
-    type Target = C;
-    fn deref(&self) -> &C {
-        self.l.as_any().downcast_ref::<C>().unwrap()
-    }
-}
-
-//tp DerefMut for RefMutInstance
-impl<C: Component + 'static> std::ops::DerefMut for RefMutInstance<'_, C> {
-    fn deref_mut(&mut self) -> &mut C {
-        self.l.as_mut_any().downcast_mut::<C>().unwrap()
-    }
-}
-
-//a RefInstance
-//tp RefInstance
-pub struct RefInstance<'a, C: Component + 'static> {
-    l: RwLockReadGuard<'a, Box<dyn Simulatable + 'static>>,
-    phantom: PhantomData<&'a C>,
-}
-
-//ip Deref for RefInstance
-impl<C: Component + 'static> std::ops::Deref for RefInstance<'_, C> {
-    type Target = C;
-    fn deref(&self) -> &C {
-        self.l.as_any().downcast_ref::<C>().unwrap()
-    }
-}
-
-//ip Deref for RefMutInstance
-impl<C: Component + 'static> RefMutInstance<'_, C> {
-    ///  Borrow the inputs as mutable
-    pub fn inputs_mut(&mut self) -> C::InputsMut<'_> {
-        self.l
-            .as_mut_any()
-            .downcast_mut::<C>()
-            .unwrap()
-            .inputs_mut()
-    }
-
-    /// Borrow the inputs as immutable
-    pub fn inputs(&self) -> C::Inputs<'_> {
-        self.l.as_any().downcast_ref::<C>().unwrap().inputs()
-    }
-
-    /// Borrow the outputs as immutable
-    pub fn outputs(&self) -> C::Outputs<'_> {
-        self.l.as_any().downcast_ref::<C>().unwrap().outputs()
-    }
-}
-
-//ip RefInstance
-impl<C: Component + 'static> RefInstance<'_, C> {
-    /// Borrow the inputs as immutable
-    pub fn inputs(&self) -> C::Inputs<'_> {
-        self.l.as_any().downcast_ref::<C>().unwrap().inputs()
-    }
-
-    /// Borrow the outputs as immutable
-    pub fn outputs(&self) -> C::Outputs<'_> {
-        self.l.as_any().downcast_ref::<C>().unwrap().outputs()
-    }
-    pub fn try_as_t<V: SimCopyValue>(&self, s: SimStateIndex) -> Option<V> {
-        self.l.as_any().downcast_ref::<C>().and_then(|c| {
-            c.try_state_data(s)
-                .and_then(|sd| sd.try_as_t::<V>().copied())
-        })
-    }
-    pub fn as_t<V: SimCopyValue>(&self, s: SimStateIndex) -> V {
-        self.try_as_t(s).unwrap()
-    }
-    pub fn try_as_u64<V: SimBv>(&self, s: SimStateIndex) -> Option<u64> {
-        self.l
-            .as_any()
-            .downcast_ref::<C>()
-            .unwrap()
-            .try_state_data(s)
-            .and_then(|v| v.try_as_u64::<V>())
-    }
-    pub fn try_as_bool<V>(&self, s: SimStateIndex) -> Option<bool>
-    where
-        V: SimBit,
-        bool: From<V>,
-        for<'b> &'b bool: From<&'b V>,
-    {
-        self.l
-            .as_any()
-            .downcast_ref::<C>()
-            .unwrap()
-            .try_state_data(s)
-            .and_then(|v| v.try_as_bool::<V>())
-    }
-}
 
 //a Instance
 //tp Instance
@@ -170,10 +70,7 @@ impl Instance {
     pub fn borrow_mut<C: Component + 'static>(&self) -> Option<RefMutInstance<'_, C>> {
         let l = self.simulatable.try_write();
         match l {
-            Ok(l) => Some(RefMutInstance {
-                l,
-                phantom: PhantomData,
-            }),
+            Ok(l) => Some(RefMutInstance::of_lock_guard(l)),
             Err(_) => None,
         }
     }
@@ -183,10 +80,7 @@ impl Instance {
     pub fn borrow<C: Component + 'static>(&self) -> Option<RefInstance<'_, C>> {
         let l = self.simulatable.try_read();
         match l {
-            Ok(l) => Some(RefInstance {
-                l,
-                phantom: PhantomData,
-            }),
+            Ok(l) => Some(RefInstance::of_lock_guard(l)),
             Err(_) => None,
         }
     }
