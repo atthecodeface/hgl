@@ -1,53 +1,149 @@
 //a Imports
-use std::sync::{Arc, Condvar, Mutex};
-use std::thread::spawn;
+use std::sync::{Arc, Condvar, Mutex, MutexGuard};
+use std::thread::{spawn, JoinHandle};
+
+use cpu_timer::AccTimer;
 
 use hgl_sim::prelude::component::*;
 
 //a MCInner, ModelControl
-#[derive(Default, Clone)]
+//tp State
+#[derive(Default, Clone, Copy, PartialEq)]
 enum State {
     #[default]
     Idle,
     Running,
     Paused,
-    Dropped,
+    Stopped,
 }
-#[derive(Default, Clone)]
+impl State {
+    fn is_stopped(&self) -> bool {
+        matches!(self, State::Stopped)
+    }
+}
+
+//tp Action
+#[derive(Default, Clone, Copy, PartialEq)]
+enum Action {
+    #[default]
+    Idle,
+    Start,
+    Run,
+    Pause,
+    Stop,
+}
+
+impl Action {
+    fn is_idle(&self) -> bool {
+        matches!(self, Action::Idle)
+    }
+}
+//tp MCInner
+#[derive(Default)]
 struct MCInner {
-    start: bool,
-    pause: bool,
-    resume: bool,
-    stop: bool,
     state: State,
+    action: Action,
+    input_data: u64,
+    result_data: u64,
+    timer: AccTimer<true>,
+    thread: Option<JoinHandle<()>>,
 }
+
+//tp ModelControl
 #[derive(Clone)]
 struct ModelControl {
     inner: Arc<(Mutex<MCInner>, Condvar)>,
 }
+
+//ip ModelControl
 impl ModelControl {
+    //cp new
     fn new() -> Self {
         let mc_inner = MCInner::default();
         let inner = Arc::new((Mutex::new(mc_inner), Condvar::new()));
         Self { inner }
     }
-}
-struct ModelThread {
-    control: ModelControl,
-    running: bool,
+
+    //ap get_state
+    fn get_state(&self) -> State {
+        let i = self.inner.0.lock().unwrap();
+        if !i.action.is_idle() {
+            panic!("Should wait!");
+        }
+        i.state
+    }
+
+    //ap update_state
+    fn update_state(&self, action: Action) {
+        let mut i = self.inner.0.lock().unwrap();
+        if !i.action.is_idle() {
+            panic!("Should wait!");
+        }
+        if i.state == State::Stopped {
+            return;
+        }
+        i.action = action;
+        self.inner.1.notify_all();
+    }
+
+    //mp thread_run
+    fn thread_run(&self) {
+        loop {
+            eprintln!("thread_run: loop start");
+            let (m, c) = &*self.inner;
+            let mg = m.lock().unwrap();
+            if !mg.state.is_stopped() {
+                break;
+            };
+            self.wait_for_state_change();
+        }
+    }
+
+    //ap handle_state_change
+    fn handle_state_change(&self, mg: &mut MutexGuard<'_, MCInner>) {}
+
+    //ap wait_for_state_change
+    fn wait_for_state_change(&self) -> bool {
+        let (m, c) = &*self.inner;
+        let mg = m.lock().unwrap();
+        let (mut mg, t) = c.wait_timeout(mg, std::time::Duration::new(1, 0)).unwrap();
+        // secs, ns
+        if t.timed_out() {
+            false
+        } else {
+            if !mg.action.is_idle() {
+                self.handle_state_change(&mut mg);
+                mg.action = Action::Idle;
+                true
+            } else {
+                false
+            }
+        }
+    }
+    //zz All done
 }
 
+//ti ModelThread
+struct ModelThread {
+    control: ModelControl,
+    timer: AccTimer<false>,
+    thread: Option<JoinHandle<()>>,
+}
+
+//ii ModelThread
 impl ModelThread {
     fn new() -> Self {
         let control = ModelControl::new();
         Self {
             control,
-            running: false,
+            timer: AccTimer::default(),
+            thread: None,
         }
     }
     fn control(&self) -> ModelControl {
         self.control.clone()
     }
+    fn update_state(&mut self) {}
 }
 
 //a STATE_INFO, Inputs, Outputs

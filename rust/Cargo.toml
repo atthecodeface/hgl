@@ -48,7 +48,7 @@ hgl_models = { version = "0.0.1", path = "./models" }
 version = "0.8.5"
 
 [workspace.dependencies.cpu_timer]
-version = "0.1.0"
+version = "0.1.1"
 
 [workspace.dependencies.serde]
 version = "1.0"
