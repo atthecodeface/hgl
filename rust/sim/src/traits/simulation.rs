@@ -117,6 +117,16 @@ pub trait Simulatable: std::any::Any {
     /// The reason could be simulation restart, or something 'weaker'
     fn reset(&mut self, _reason: SimReset) {}
 
+    //mp start
+    /// Inform the simulatable that the simulation has started; it
+    /// should start paused or resumed, depending on the argument
+    ///
+    /// Once started, it can be reset, resumed, paused, and eventually
+    /// stopped at most once
+    ///
+    /// State can only be interrogated while paused
+    fn start(&mut self, running: bool) {}
+
     //mp pause
     /// Inform the simulatable that the simulation has been paused
     ///
@@ -126,6 +136,12 @@ pub trait Simulatable: std::any::Any {
     //mp resume
     /// Inform the simulatable that the simulation has been resumed
     fn resume(&mut self) {}
+
+    //mp stop
+    /// Inform the simulatable that the simulation has stopped
+    ///
+    /// Once stopped, the simulatable will never be started again
+    fn stop(&mut self) {}
 
     //mp clock
     /// Clock the component, with mask indicating which edges have occurred

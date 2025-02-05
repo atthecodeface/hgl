@@ -8,7 +8,7 @@ use crate::simulation::{
     Clock, ClockArray, ClockIndex, Instance, InstanceHandle, Name, NameFmt, Names, NamespaceStack,
     NsNameFmt, RefInstance, RefMutInstance, SimEdgeMask, SimNsName,
 };
-use crate::traits::{Component, ComponentBuilder, SimHandle, SimRegister};
+use crate::traits::{Component, ComponentBuilder, SimHandle, SimRegister, Simulatable};
 
 //a SimulationControl
 //tp EdgeUse
@@ -21,6 +21,14 @@ pub struct EdgeUse {
 }
 
 //tp SimulationControl
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum Running {
+    #[default]
+    Idle,
+    Paused,
+    Running,
+    Stopped,
+}
 #[derive(Default)]
 struct SimulationControl<'s> {
     /// Names and namespaces in the simulation
@@ -31,6 +39,8 @@ struct SimulationControl<'s> {
     edge_uses: HashMap<InstanceHandle, Vec<EdgeUse>>,
     /// Clocks used in the simulation
     clocks: ClockArray<'s>,
+    /// State of simulation
+    running_state: Running,
 }
 
 //ip SimulationControl
@@ -146,6 +156,68 @@ impl Simulation<'_> {
         self.control.borrow_mut().clocks.derive_schedule();
     }
 
+    //mp start
+    pub fn start(&self, running: bool) -> Result<(), String> {
+        let running_state = self.control.borrow().running_state;
+        if running_state == Running::Idle {
+            let _failed = self.map_mut_simulatables(&mut |s| s.start(running));
+            if running {
+                self.control.borrow_mut().running_state = Running::Running;
+            } else {
+                self.control.borrow_mut().running_state = Running::Paused;
+            }
+            Ok(())
+        } else {
+            Err(format!(
+                "Could not start; it was already in state {running_state:?}"
+            ))
+        }
+    }
+
+    //mp pause
+    pub fn pause(&self) -> Result<(), String> {
+        let running_state = self.control.borrow().running_state;
+        match running_state {
+            Running::Paused => Ok(()),
+            Running::Running => {
+                let _failed = self.map_mut_simulatables(&mut |s| s.pause());
+                Ok(())
+            }
+            _ => Err(format!(
+                "Could not pause; it was already in state {running_state:?}"
+            )),
+        }
+    }
+
+    //mp resume
+    pub fn resume(&self) -> Result<(), String> {
+        let running_state = self.control.borrow().running_state;
+        match running_state {
+            Running::Running => Ok(()),
+            Running::Paused => {
+                let _failed = self.map_mut_simulatables(&mut |s| s.resume());
+                Ok(())
+            }
+            _ => Err(format!(
+                "Could not resume; it was already in state {running_state:?}"
+            )),
+        }
+    }
+
+    //mp stop
+    pub fn stop(&self) -> Result<(), String> {
+        let running_state = self.control.borrow().running_state;
+        match running_state {
+            Running::Running | Running::Paused => {
+                let _failed = self.map_mut_simulatables(&mut |s| s.stop());
+                Ok(())
+            }
+            _ => Err(format!(
+                "Could not stop; it was already in state {running_state:?}"
+            )),
+        }
+    }
+
     //mp next_edges
     pub fn next_edges(&self) -> (usize, usize) {
         self.control.borrow_mut().clocks.next_edges()
@@ -257,6 +329,21 @@ impl Simulation<'_> {
     //mp find_name
     pub fn find_name(&self, name: &str) -> Option<Name> {
         self.control.borrow().names.find_name(name)
+    }
+
+    //ap map_mut_simulatables
+    /// Iterate through the instances
+    fn map_mut_simulatables<F: FnMut(&mut dyn Simulatable)>(&self, f: &mut F) -> bool {
+        let mut mapped_all = true;
+        for i in self.iter_instances() {
+            use std::ops::DerefMut;
+            if let Some(mut s) = i.borrow_sim_mut() {
+                f(s.deref_mut().deref_mut())
+            } else {
+                mapped_all = false;
+            }
+        }
+        mapped_all
     }
 
     //ap iter_instances

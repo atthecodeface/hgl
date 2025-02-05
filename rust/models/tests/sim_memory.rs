@@ -11,6 +11,7 @@ fn sim_memory() -> Result<(), String> {
     let mem2 = sim.instantiate::<Mem32x31, _, _>("memory_2", || 32)?;
 
     sim.prepare_simulation();
+    sim.start(true)?;
 
     {
         let _mem = sim.inst::<Mem32x31>(mem1);
@@ -83,6 +84,8 @@ fn sim_memory() -> Result<(), String> {
 
     // If we do not drop then dbg of sim will not show the values
     drop(mem);
+
+    sim.stop()?;
     dbg!(&sim);
 
     Ok(())

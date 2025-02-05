@@ -18,6 +18,7 @@ fn sim_counter() -> Result<(), String> {
     sim.connect_clock(clk, cntr, 0); // cntr_clk);
 
     sim.prepare_simulation();
+    sim.start(true)?;
 
     dbg!(&sim);
 
@@ -86,6 +87,7 @@ fn sim_counter() -> Result<(), String> {
         exp
     );
 
+    sim.stop()?;
     // assert!(false);
 
     Ok(())
@@ -111,6 +113,7 @@ fn test_full() -> Result<(), String>
     sim.connect_clock(clk, cntr, 0); // cntr_clk);
 
     sim.prepare_simulation();
+    sim.start(true)?;
 
     *sim.inst_mut::<Counter<T>>(cntr).inputs.reset_n = true.into();
     for _ in 0..10 {
@@ -131,6 +134,7 @@ fn test_full() -> Result<(), String>
 
     *sim.inst_mut::<Counter<T>>(cntr).inputs.increment = false.into();
 
+    sim.stop()?;
     dbg!(&sim);
 
     // assert!(false);

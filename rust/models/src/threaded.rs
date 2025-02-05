@@ -8,7 +8,7 @@ use hgl_sim::prelude::component::*;
 
 //a MCInner, ModelControl
 //tp State
-#[derive(Default, Clone, Copy, PartialEq)]
+#[derive(Default, Debug, Clone, Copy, PartialEq)]
 enum State {
     #[default]
     Idle,
@@ -23,12 +23,11 @@ impl State {
 }
 
 //tp Action
-#[derive(Default, Clone, Copy, PartialEq)]
+#[derive(Default, Debug, Clone, Copy, PartialEq)]
 enum Action {
     #[default]
     Idle,
-    Start,
-    Run,
+    Resume,
     Pause,
     Stop,
 }
@@ -38,82 +37,184 @@ impl Action {
         matches!(self, Action::Idle)
     }
 }
+
+/// Trait for a threaded model
+///
+/// All methods are invoked from within a thread separate from the
+/// simulation thread
+trait ThreadedModel: Send + 'static {
+    fn start(&mut self) {}
+    fn pause(&mut self) {}
+    fn resume(&mut self) {}
+    fn stop(&mut self) {}
+}
+
 //tp MCInner
-#[derive(Default)]
+#[derive(Default, Debug)]
 struct MCInner {
-    state: State,
-    action: Action,
     input_data: u64,
     result_data: u64,
-    timer: AccTimer<true>,
+    timer: AccTimer<false>,
+}
+
+impl ThreadedModel for MCInner {
+    fn start(&mut self) {
+        self.timer.clear();
+    }
+    fn pause(&mut self) {
+        self.timer.stop()
+    }
+    fn resume(&mut self) {
+        self.timer.start()
+    }
+    fn stop(&mut self) {}
+}
+
+#[derive(Default, Debug)]
+struct ModelControl {
+    state: State,
+    action: Action,
     thread: Option<JoinHandle<()>>,
 }
 
-//tp ModelControl
-#[derive(Clone)]
-struct ModelControl {
-    inner: Arc<(Mutex<MCInner>, Condvar)>,
+//tp Model
+struct Model<T>
+where
+    T: ThreadedModel,
+{
+    inner: Arc<(Mutex<(ModelControl, T)>, Condvar)>,
 }
 
-//ip ModelControl
-impl ModelControl {
+impl<T> std::clone::Clone for Model<T>
+where
+    T: ThreadedModel,
+{
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+        }
+    }
+}
+
+//ip Model
+impl<T> Model<T>
+where
+    T: ThreadedModel,
+{
     //cp new
-    fn new() -> Self {
-        let mc_inner = MCInner::default();
-        let inner = Arc::new((Mutex::new(mc_inner), Condvar::new()));
+    fn new(inner: T) -> Self {
+        let control = ModelControl::default();
+        let inner = Arc::new((Mutex::new((control, inner)), Condvar::new()));
         Self { inner }
     }
 
     //ap get_state
     fn get_state(&self) -> State {
-        let i = self.inner.0.lock().unwrap();
-        if !i.action.is_idle() {
-            panic!("Should wait!");
-        }
-        i.state
+        self.inner.0.lock().unwrap().0.state
+    }
+
+    //ap get
+    fn get<R, F: FnOnce(&T) -> R>(&self, f: F) -> R {
+        f(&self.inner.0.lock().unwrap().1)
+    }
+
+    //mp start
+    fn start(&mut self, running: bool) {
+        eprintln!("start inner running:{running}");
+        let (m, _c) = &*self.inner;
+        let mut mg = m.lock().unwrap();
+        assert!(mg.0.state == State::Idle);
+        mg.0.action = Action::Idle;
+        mg.0.state = State::Paused;
+        let s = self.clone();
+        mg.0.thread = Some(spawn(move || s.thread_run()));
+        drop(mg);
+        if running {
+            self.update_state(Action::Resume);
+        };
     }
 
     //ap update_state
     fn update_state(&self, action: Action) {
-        let mut i = self.inner.0.lock().unwrap();
-        if !i.action.is_idle() {
+        let mut mg = self.inner.0.lock().unwrap();
+        if !mg.0.action.is_idle() {
             panic!("Should wait!");
         }
-        if i.state == State::Stopped {
+        if mg.0.state == State::Stopped {
             return;
         }
-        i.action = action;
+        mg.0.action = action;
         self.inner.1.notify_all();
     }
 
     //mp thread_run
     fn thread_run(&self) {
+        {
+            let (m, _c) = &*self.inner;
+            let mut mg = m.lock().unwrap();
+            mg.1.start();
+        }
+        eprintln!("thread_run: start");
         loop {
             eprintln!("thread_run: loop start");
-            let (m, c) = &*self.inner;
+            let (m, _c) = &*self.inner;
             let mg = m.lock().unwrap();
-            if !mg.state.is_stopped() {
+            if mg.0.state.is_stopped() {
                 break;
             };
+            drop(mg);
             self.wait_for_state_change();
         }
+        eprintln!("thread_run: finished");
     }
 
     //ap handle_state_change
-    fn handle_state_change(&self, mg: &mut MutexGuard<'_, MCInner>) {}
+    //
+    // Cannot be in Idle; this is only invoked from within the thread,
+    // so it must be either Running or Paused
+    fn handle_state_change(&self, mci: &mut (ModelControl, T)) {
+        eprintln!("State change {:?}", mci.0);
+        match (mci.0.state, mci.0.action) {
+            (State::Running, Action::Pause) => {
+                mci.1.pause();
+                mci.0.state = State::Paused;
+            }
+            (State::Running, Action::Stop) => {
+                mci.1.pause();
+                mci.1.stop();
+                mci.0.state = State::Stopped;
+            }
+            (State::Paused, Action::Resume) => {
+                mci.1.resume();
+                mci.0.state = State::Running;
+            }
+            (State::Paused, Action::Stop) => {
+                mci.1.stop();
+                mci.0.state = State::Stopped;
+            }
+            _ => {
+                panic!(
+                    "Unexpected state/action {:?}, {:?}",
+                    mci.0.state, mci.0.action
+                );
+            }
+        }
+    }
 
     //ap wait_for_state_change
     fn wait_for_state_change(&self) -> bool {
+        eprintln!("thread: wait_for_state_change");
         let (m, c) = &*self.inner;
         let mg = m.lock().unwrap();
         let (mut mg, t) = c.wait_timeout(mg, std::time::Duration::new(1, 0)).unwrap();
+        eprintln!("thread: wait_for_state_change: condvar returned {t:?}");
         // secs, ns
         if t.timed_out() {
             false
         } else {
-            if !mg.action.is_idle() {
-                self.handle_state_change(&mut mg);
-                mg.action = Action::Idle;
+            if !mg.0.action.is_idle() {
+                self.handle_state_change(&mut *mg);
+                mg.0.action = Action::Idle;
                 true
             } else {
                 false
@@ -121,29 +222,6 @@ impl ModelControl {
         }
     }
     //zz All done
-}
-
-//ti ModelThread
-struct ModelThread {
-    control: ModelControl,
-    timer: AccTimer<false>,
-    thread: Option<JoinHandle<()>>,
-}
-
-//ii ModelThread
-impl ModelThread {
-    fn new() -> Self {
-        let control = ModelControl::new();
-        Self {
-            control,
-            timer: AccTimer::default(),
-            thread: None,
-        }
-    }
-    fn control(&self) -> ModelControl {
-        self.control.clone()
-    }
-    fn update_state(&mut self) {}
 }
 
 //a STATE_INFO, Inputs, Outputs
@@ -177,8 +255,7 @@ pub struct Outputs {
 //a Threaded
 //tp Threaded
 pub struct Threaded {
-    pub model: ModelThread,
-    pub control: ModelControl,
+    pub model: Model<MCInner>,
     pub inputs: Inputs,
     pub outputs: Outputs,
 }
@@ -189,18 +266,19 @@ impl Threaded {
     /// Create a new [Threaded] with a given reset value (if not the
     /// default)
     pub fn new() -> Self {
-        let model = ModelThread::new();
-        let control = model.control();
+        let inner = MCInner::default();
+        let model = Model::new(inner);
         let inputs = Inputs::default();
         let outputs = Outputs::default();
         Self {
             model,
-            control,
             inputs,
             outputs,
         }
     }
-    fn generate_outputs(&mut self) {}
+    fn generate_outputs(&mut self) {
+        self.outputs.q = self.model.get(|m| m.timer.acc_value());
+    }
 }
 
 //ip Simulatable for Threaded
@@ -225,6 +303,18 @@ impl Simulatable for Threaded {
         self.generate_outputs();
     }
 
+    fn start(&mut self, running: bool) {
+        self.model.start(running);
+    }
+
+    fn pause(&mut self) {}
+
+    fn resume(&mut self) {}
+
+    fn stop(&mut self) {
+        self.model.update_state(Action::Stop);
+    }
+
     //mp Clock
     /// Clock the component, with mask indicating which edges have occurred
     ///
@@ -232,7 +322,13 @@ impl Simulatable for Threaded {
     fn clock(&mut self, mask: SimEdgeMask) {
         if mask.is_posedge(0) {
             if !self.inputs.reset_n {
+                // self.model.
             } else {
+                if self.inputs.start {
+                    self.model.update_state(Action::Resume);
+                } else if self.inputs.stop {
+                    self.model.update_state(Action::Pause);
+                }
             }
             self.generate_outputs();
         }

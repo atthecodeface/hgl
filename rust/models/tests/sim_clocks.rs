@@ -8,11 +8,13 @@ fn sim_clocks() -> Result<(), String> {
     assert_eq!(sim.add_clock("clk5", 17, 5, 3)?.index(), 1);
     assert_eq!(sim.add_clock("clk14", 3, 14, 0)?.index(), 2);
     sim.prepare_simulation();
+    sim.start(true)?;
 
     for _ in 0..100 {
         let edges = sim.next_edges();
         eprintln!("{}: Edges {:?}", sim.time(), edges);
     }
+    sim.stop()?;
     Ok(())
 }
 
