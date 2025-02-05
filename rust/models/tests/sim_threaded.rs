@@ -28,17 +28,25 @@ fn sim_threaded() -> Result<(), String> {
         sim.fire_next_edges();
     }
 
-    eprintln!("Time after edges {}", sim.inst_mut::<Threaded>(m).outputs.q);
-
     sim.inst_mut::<Threaded>(m).inputs.stop = true;
     sim.fire_next_edges();
     sim.inst_mut::<Threaded>(m).inputs.stop = false;
+
+    sim.fire_next_edges();
+
+    eprintln!(
+        "Time after while running edges {}",
+        sim.inst_mut::<Threaded>(m).outputs.q
+    );
 
     for _ in 0..10_000 {
         sim.fire_next_edges();
     }
 
-    eprintln!("Time after edges {}", sim.inst_mut::<Threaded>(m).outputs.q);
+    eprintln!(
+        "Time after edges stopped {}",
+        sim.inst_mut::<Threaded>(m).outputs.q
+    );
 
     dbg!(&sim);
 

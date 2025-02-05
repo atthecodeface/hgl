@@ -6,7 +6,7 @@ use cpu_timer::AccTimer;
 
 use hgl_sim::prelude::component::*;
 
-//a MCInner, ModelControl
+//a State and Action
 //tp State
 #[derive(Default, Debug, Clone, Copy, PartialEq)]
 enum State {
@@ -38,17 +38,7 @@ impl Action {
     }
 }
 
-/// Trait for a threaded model
-///
-/// All methods are invoked from within a thread separate from the
-/// simulation thread
-trait ThreadedModel: Send + 'static {
-    fn start(&mut self) {}
-    fn pause(&mut self) {}
-    fn resume(&mut self) {}
-    fn stop(&mut self) {}
-}
-
+//a MCInner
 //tp MCInner
 #[derive(Default, Debug)]
 struct MCInner {
@@ -57,6 +47,7 @@ struct MCInner {
     timer: AccTimer<false>,
 }
 
+//ip ThreadedModel for MCInner
 impl ThreadedModel for MCInner {
     fn start(&mut self) {
         self.timer.clear();
@@ -70,10 +61,25 @@ impl ThreadedModel for MCInner {
     fn stop(&mut self) {}
 }
 
+//a ModelControl
+//tt ThreadedModel
+/// Trait for a threaded model
+///
+/// All methods are invoked from within a thread separate from the
+/// simulation thread
+trait ThreadedModel: Send + 'static {
+    fn start(&mut self) {}
+    fn pause(&mut self) {}
+    fn resume(&mut self) {}
+    fn stop(&mut self) {}
+}
+
+//ti ModelControl
 #[derive(Default, Debug)]
 struct ModelControl {
     state: State,
     action: Action,
+    thread_ready: bool,
     thread: Option<JoinHandle<()>>,
 }
 
@@ -82,7 +88,7 @@ struct Model<T>
 where
     T: ThreadedModel,
 {
-    inner: Arc<(Mutex<(ModelControl, T)>, Condvar)>,
+    inner: Arc<(Mutex<(ModelControl, T)>, Condvar, Condvar)>,
 }
 
 impl<T> std::clone::Clone for Model<T>
@@ -104,7 +110,7 @@ where
     //cp new
     fn new(inner: T) -> Self {
         let control = ModelControl::default();
-        let inner = Arc::new((Mutex::new((control, inner)), Condvar::new()));
+        let inner = Arc::new((Mutex::new((control, inner)), Condvar::new(), Condvar::new()));
         Self { inner }
     }
 
@@ -120,13 +126,13 @@ where
 
     //mp start
     fn start(&mut self, running: bool) {
+        let s = self.clone();
         eprintln!("start inner running:{running}");
-        let (m, _c) = &*self.inner;
-        let mut mg = m.lock().unwrap();
+        let mut mg = self.inner.0.lock().unwrap();
         assert!(mg.0.state == State::Idle);
         mg.0.action = Action::Idle;
         mg.0.state = State::Paused;
-        let s = self.clone();
+        mg.0.thread_ready = false;
         mg.0.thread = Some(spawn(move || s.thread_run()));
         drop(mg);
         if running {
@@ -134,31 +140,53 @@ where
         };
     }
 
+    //ap wait_for_thread_ready
+    fn wait_for_thread_ready(&self) {
+        let (m, t, f) = &*self.inner;
+        let mut mg = m.lock().unwrap();
+        while !mg.0.thread_ready {
+            let (new_mg, _f) = f.wait_timeout(mg, std::time::Duration::new(1, 0)).unwrap();
+            mg = new_mg;
+        }
+    }
+
     //ap update_state
     fn update_state(&self, action: Action) {
-        let mut mg = self.inner.0.lock().unwrap();
+        self.wait_for_thread_ready();
+        let (m, t, f) = &*self.inner;
+        let mut mg = m.lock().unwrap();
         if !mg.0.action.is_idle() {
-            panic!("Should wait!");
+            panic!("Action should have been cleared if thread is ready!");
         }
-        if mg.0.state == State::Stopped {
-            return;
+        match (mg.0.state, action) {
+            (State::Idle, Action::Resume) => (),
+            (State::Running, Action::Pause) => (),
+            (State::Paused, Action::Resume) => (),
+            (State::Idle, Action::Stop) => (),
+            (State::Running, Action::Stop) => (),
+            (State::Paused, Action::Stop) => (),
+            _ => {
+                return;
+            }
         }
         mg.0.action = action;
-        self.inner.1.notify_all();
+        mg.0.thread_ready = false;
+        t.notify_all();
     }
 
     //mp thread_run
     fn thread_run(&self) {
         {
-            let (m, _c) = &*self.inner;
+            let (m, _t, f) = &*self.inner;
             let mut mg = m.lock().unwrap();
             mg.1.start();
+            mg.0.thread_ready = true;
+            f.notify_all();
         }
         eprintln!("thread_run: start");
         loop {
             eprintln!("thread_run: loop start");
-            let (m, _c) = &*self.inner;
-            let mg = m.lock().unwrap();
+            let mg = self.inner.0.lock().unwrap();
             if mg.0.state.is_stopped() {
                 break;
             };
@@ -173,7 +201,6 @@ where
     // Cannot be in Idle; this is only invoked from within the thread,
     // so it must be either Running or Paused
     fn handle_state_change(&self, mci: &mut (ModelControl, T)) {
-        eprintln!("State change {:?}", mci.0);
         match (mci.0.state, mci.0.action) {
             (State::Running, Action::Pause) => {
                 mci.1.pause();
@@ -204,9 +231,9 @@ where
     //ap wait_for_state_change
     fn wait_for_state_change(&self) -> bool {
         eprintln!("thread: wait_for_state_change");
-        let (m, c) = &*self.inner;
+        let (m, t, f) = &*self.inner;
         let mg = m.lock().unwrap();
-        let (mut mg, t) = c.wait_timeout(mg, std::time::Duration::new(1, 0)).unwrap();
+        let (mut mg, t) = t.wait_timeout(mg, std::time::Duration::new(1, 0)).unwrap();
         eprintln!("thread: wait_for_state_change: condvar returned {t:?}");
         // secs, ns
         if t.timed_out() {
@@ -215,6 +242,8 @@ where
             if !mg.0.action.is_idle() {
                 self.handle_state_change(&mut *mg);
                 mg.0.action = Action::Idle;
+                mg.0.thread_ready = true;
+                f.notify_all();
                 true
             } else {
                 false
@@ -328,6 +357,7 @@ impl Simulatable for Threaded {
                     self.model.update_state(Action::Resume);
                 } else if self.inputs.stop {
                     self.model.update_state(Action::Pause);
+                    self.model.wait_for_thread_ready();
                 }
             }
             self.generate_outputs();

@@ -49,6 +49,7 @@ version = "0.8.5"
 
 [workspace.dependencies.cpu_timer]
 version = "0.1.1"
+# path = "../../cpu_timer"
 
 [workspace.dependencies.serde]
 version = "1.0"
