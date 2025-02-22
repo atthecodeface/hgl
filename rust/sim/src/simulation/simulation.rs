@@ -6,7 +6,7 @@ use hgl_indexed_vec::VecWithIndex;
 
 use crate::simulation::{
     Clock, ClockArray, ClockIndex, Instance, InstanceHandle, Name, NameFmt, Names, NamespaceStack,
-    NsNameFmt, RefInstance, RefMutInstance, SimEdgeMask, SimNsName,
+    NsNameFmt, RefInstance, RefMutInstance, SimNsName,
 };
 use crate::traits::{Component, ComponentBuilder, SimHandle, SimRegister, Simulatable};
 

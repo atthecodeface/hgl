@@ -227,7 +227,7 @@ impl ClockArray<'_> {
         let clock = Clock::new(name, delay, period, negedge_offset);
         self.clocks
             .insert(name, |_| clock)
-            .map_err(|_| format!("Clock already exists"))
+            .map_err(|_| "Clock already exists".to_string())
     }
 
     //mp find_clock

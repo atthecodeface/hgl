@@ -134,7 +134,7 @@ impl Names<'_> {
     fn add_full_name(&mut self, f: NsName) -> Result<SimNsName, String> {
         self.namespace_names
             .insert(f, |_| f)
-            .map_err(|_| format!("Duplicate name in namespace"))
+            .map_err(|_| "Duplicate name in namespace".to_string())
     }
 
     fn get_full_name(&self, f: NsName) -> Option<SimNsName> {
