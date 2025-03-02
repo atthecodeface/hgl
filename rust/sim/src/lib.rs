@@ -110,6 +110,57 @@
 //! they might not support comparison and may be incompatible entirely
 //! with checkpointing (or may just opt out).
 //!
+//! # Simulation
+//!
+//! A simulation is the main data type provided. A simulation is managed in the following phases:
+//!
+//! * Basic simulation configuration
+//!
+//! * Construction of the model to be simulated (instantiation of models)
+//!
+//! * Creation and connection of clocks to models (and other edge sensitivity)
+//!
+//! * Prepare for simulation - individual model instances are mutable
+//!   in multiple threads through separate RwLocks, but the main control
+//!   structure is owned by the main simulation thread
+//!
+//! * Start of simulation - additional threads are created by models
+//!   if required, cloning part of the simulation as SimulationWorker
+//!
+//! * Main thread controls forward progress of the model (indicates
+//!   how many clock edges to move on, etc)
+//!
+//! * Additional threads can use SimulationWorker to wait for specific
+//!   events, such as a signal asserted when a clock edge fires
+//!
+//! * Main thread controls termination of the simulation (after a
+//!   certain number of clock edges, for example)
+//!
+//! * Main thread halts simulation; other model threads must drop
+//!   their SimulationWorkers (and generally terminate)
+//!
+//! * Simulation models can be deconstructed (if required) and results analyzed
+//!
+//! Simulation operates from a main thread, and can have other threads interacting with it; the simulation main thread
+//!
+//! SimulationWorkers can invoke 'wait_for_edge<F:Send +
+//! FnMut(SimEdgeMask) -> SimWaitResult>'; this will wait on a
+//! sync::Condvar until the simulation is stopped or the relevant edge
+//! occurs with the condition set
+//!
+//! Maybe have the worker set its filter with Arc<Mutex<Box<dyn FnMut>>>
+//!
+//! The main simulation thread calculates when the next clock edge is
+//! to occur, and it moves time forward to that point; it calculates
+//! the SimEdgeMask for that time (more than one clock edge might
+//! occur); all SimulationWorkers must at this point be waiting for an edge.
+//!
+//! The conditions for all the SimulationWorkers are evaluated before
+//! releasing the sync::Condvar's; the main thread has a thread
+//! barrier and it increments the number of workers for each
+//! released. When the workers return (or drop!) the increment the
+//! thread barrier count, and the main thread can continue execution
+//! when *it* and the worker's are all ready
 //!
 
 //a Modules
@@ -119,3 +170,5 @@ pub(crate) mod simulation;
 pub(crate) mod traits;
 pub(crate) mod value_types;
 pub(crate) mod values;
+
+pub mod sync;

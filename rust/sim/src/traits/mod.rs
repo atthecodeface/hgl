@@ -8,5 +8,5 @@ pub use bv::IsBv;
 pub use bv_data::BvData;
 pub use simulation::{Component, ComponentBuilder, Simulatable};
 pub use simulation::{SimHandle, SimRegister};
-pub use types::{SimCopyValue, SimValueAsU8s, SimValueObject};
 pub use types::{SimArray, SimBit, SimBv, SimStruct};
+pub use types::{SimCopyValue, SimValueAsU8s, SimValueObject};

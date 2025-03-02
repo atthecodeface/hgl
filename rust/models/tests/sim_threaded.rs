@@ -51,7 +51,7 @@ fn sim_threaded() -> Result<(), String> {
     dbg!(&sim);
 
     sim.stop()?;
-    assert!(false);
+    //assert!(false);
 
     Ok(())
 }

@@ -140,17 +140,20 @@ where
         };
     }
 
-    //ap wait_for_thread_ready
+    //ap wait_for_thread_ready - invoked from simulation thread
     fn wait_for_thread_ready(&self) {
         let (m, t, f) = &*self.inner;
         let mut mg = m.lock().unwrap();
         while !mg.0.thread_ready {
-            let (new_mg, _f) = f.wait_timeout(mg, std::time::Duration::new(1, 0)).unwrap();
+            let (new_mg, f) = f.wait_timeout(mg, std::time::Duration::new(1, 0)).unwrap();
+            if f.timed_out() {
+                eprintln!("timed out waiting for sim thread, retrying");
+            }
             mg = new_mg;
         }
     }
 
-    //ap update_state
+    //ap update_state - invoked from simulation thread
     fn update_state(&self, action: Action) {
         self.wait_for_thread_ready();
         let (m, t, f) = &*self.inner;
@@ -174,7 +177,7 @@ where
         t.notify_all();
     }
 
-    //mp thread_run
+    //mp thread_run - running in the model thread
     fn thread_run(&self) {
         {
             let (m, _t, f) = &*self.inner;
@@ -196,7 +199,7 @@ where
         eprintln!("thread_run: finished");
     }
 
-    //ap handle_state_change
+    //ap handle_state_change - running in the model thread
     //
     // Cannot be in Idle; this is only invoked from within the thread,
     // so it must be either Running or Paused
@@ -228,26 +231,28 @@ where
         }
     }
 
-    //ap wait_for_state_change
+    //ap wait_for_state_change - in the model thread
     fn wait_for_state_change(&self) -> bool {
         eprintln!("thread: wait_for_state_change");
         let (m, t, f) = &*self.inner;
-        let mg = m.lock().unwrap();
-        let (mut mg, t) = t.wait_timeout(mg, std::time::Duration::new(1, 0)).unwrap();
-        eprintln!("thread: wait_for_state_change: condvar returned {t:?}");
-        // secs, ns
-        if t.timed_out() {
-            false
-        } else {
-            if !mg.0.action.is_idle() {
-                self.handle_state_change(&mut *mg);
-                mg.0.action = Action::Idle;
-                mg.0.thread_ready = true;
-                f.notify_all();
-                true
-            } else {
-                false
+        let mut mg = m.lock().unwrap();
+        while mg.0.thread_ready {
+            let (new_mg, t) = t.wait_timeout(mg, std::time::Duration::new(1, 0)).unwrap();
+            mg = new_mg;
+            eprintln!("thread: wait_for_state_change: condvar returned {t:?}");
+            // secs, ns
+            if t.timed_out() {
+                eprintln!("model thread timed out waiting for main thread");
             }
+        }
+        if !mg.0.action.is_idle() {
+            self.handle_state_change(&mut *mg);
+            mg.0.action = Action::Idle;
+            mg.0.thread_ready = true;
+            f.notify_all();
+            true
+        } else {
+            false
         }
     }
     //zz All done

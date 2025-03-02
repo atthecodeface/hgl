@@ -403,6 +403,10 @@ pub trait SimStruct: SimCopyValue + SimBitOps {}
 
 //tt SimBit
 /// Any type that can be used as a single bit value by a simulation
+///
+/// A SimBit is equivalent to a bool, with From in both directions
+///
+/// The type is Copy, Default, Eq, Hash, Serde, Ord
 pub trait SimBit
 where
     bool: From<Self>,
@@ -427,6 +431,8 @@ where
 //tt SimBv
 /// A trait required to be supported by types that can be used as
 /// bit-vectors by the simulation
+///
+/// Possibly add From<BitRange>
 pub trait SimBv:
     SimCopyValue
     + std::cmp::PartialOrd
@@ -456,6 +462,16 @@ pub trait SimBv:
         s
     }
 
+    //cp of_bits
+    /// Create from bits
+    #[track_caller]
+    fn of_bits(br: BitRange<u8>) {
+        let mut s = Self::default();
+        let nb = s.num_bits();
+        assert_eq!(br.num_bits(), nb);
+        BitRangeMut::of_u8s(s.as_u8s_mut(), 0, nb).set_rt(br);
+    }
+
     //ap num_bits - return size of the data in number of bits
     fn num_bits(&self) -> usize;
 
@@ -468,6 +484,15 @@ pub trait SimBv:
 
     //ap set_u64 - set to a u64 value, usually for testing
     fn set_u64(&mut self, mut value: u64) {
+        if let Some(x) = self.try_as_u64s_mut() {
+            x[0] = value;
+            if <Self as SimCopyValue>::BYTE_WIDTH > 8 {
+                for x in &mut x[1..] {
+                    *x = 0;
+                }
+            }
+            return;
+        }
         let n = self.num_bits();
         let sd = self.as_u8s_mut();
         for (i, m) in bit_ops::iter_u8_of_bits(n) {
@@ -525,7 +550,16 @@ pub trait SimBv:
         self.as_u8s_mut().bit_set_nb_rt(n, v.into())
     }
 
-    //ap bit_range
+    //ap as_mut_bit_range
+    /// Return an immutable bit range (as a [BitRange]) of all the bits
+    #[track_caller]
+    fn as_mut_bit_range(&mut self) -> BitRangeMut<u8> {
+        let nb = self.num_bits();
+        let data = self.as_u8s_mut();
+        BitRangeMut::of_u8s(data, 0, nb)
+    }
+
+    //ap bits
     /// Return an immutable bit range (as a [BitRange]) using n bits
     /// starting at the specified lsb
     ///
@@ -537,6 +571,19 @@ pub trait SimBv:
             "Bit selection outside the size of the bit vector"
         );
         BitRange::of_u8s(self.as_u8s(), lsb, n)
+    }
+
+    //mp set_bits
+    /// Set a range of bits to a BitRange
+    ///
+    /// Panics if lsb+n is bigger than the vector size
+    #[track_caller]
+    fn set_bits<const NB: usize>(&mut self, lsb: usize, br: BitRange<u8>) {
+        assert!(
+            lsb + NB <= self.num_bits(),
+            "Bit selection outside the size of the bit vector"
+        );
+        BitRangeMut::of_u8s(self.as_u8s_mut(), lsb, NB).set::<NB>(br)
     }
 
     //ap bits_mut

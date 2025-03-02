@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::data::{BitRange, BitRangeMut, U8Ops};
 use crate::traits::{BvData, IsBv, SimBv, SimCopyValue, SimValueAsU8s};
+use crate::value_types::Bit;
 
 //a BvN
 //tp BvN
@@ -41,6 +42,13 @@ impl<const NB: usize> Bv<NB>
 where
     BvN<{ NB }>: IsBv,
 {
+    //cp of_bit_range
+    pub fn of_bit_range<'a, I: Into<BitRange<'a, u8>>>(br: I) -> Self {
+        let mut s = Self::default();
+        s.bit_range_mut(0, NB).set::<NB>(br.into());
+        s
+    }
+
     //fi as_u8s
     /// Return a reference to the data as a u8 slice
     pub fn as_u8s(&self) -> &[u8] {
@@ -59,6 +67,13 @@ where
         self.data.zero::<NB>();
     }
 
+    //mp bit_as_bit
+    /// Get a bit value
+    #[track_caller]
+    pub fn bit_as_bit(&self, n: usize) -> Bit {
+        self.as_u8s().bit::<NB>(n).into()
+    }
+
     //mp bit
     /// Get a bit value
     #[track_caller]
@@ -71,6 +86,19 @@ where
     #[track_caller]
     pub fn bit_set<I: Into<bool>>(&mut self, n: usize, v: I) {
         self.as_u8s_mut().bit_set::<NB>(n, v.into())
+    }
+
+    //ap bit_range_to_bv
+    pub fn bit_range_to_bv<const BVN: usize>(&self, lsb: usize, n: usize) -> Bv<BVN>
+    where
+        BvN<BVN>: IsBv,
+    {
+        Bv::<BVN>::of_bit_range(self.bit_range(lsb, n))
+    }
+
+    //ap as_bit_range
+    pub fn as_bit_range(&self) -> BitRange<u8> {
+        BitRange::of_u8s(self.as_u8s(), 0, NB)
     }
 
     //ap bit_range
@@ -353,5 +381,15 @@ where
         let mut s = Self::default();
         s.data.sub_msk::<NB>(&self.data);
         s
+    }
+}
+
+//ip From<u64> for Bv
+impl<const NB: usize> From<u64> for Bv<NB>
+where
+    BvN<{ NB }>: IsBv,
+{
+    fn from(v: u64) -> Self {
+        <Bv<{ NB }> as SimBv>::of_u64(v)
     }
 }
