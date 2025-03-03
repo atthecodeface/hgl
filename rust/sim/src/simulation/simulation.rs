@@ -134,13 +134,6 @@ impl std::fmt::Debug for Simulation<'_> {
     }
 }
 
-//ip Default for Simulation
-impl Default for Simulation<'_> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 //ip Simulation
 impl Simulation<'_> {
     //cp new
