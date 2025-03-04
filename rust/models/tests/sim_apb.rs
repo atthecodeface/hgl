@@ -11,6 +11,7 @@ fn sim() -> Result<(), String> {
     sim.connect_clock(clk, cntr, 0); // cntr_clk);
 
     sim.prepare_simulation();
+    let instances = sim.instances();
     sim.start(true)?;
 
     fn f<'a>(m: &'a mut RefMutInstance<'_, apb_target_gpio>) -> &'a mut t_apb_request {
@@ -26,11 +27,11 @@ fn sim() -> Result<(), String> {
             pwdata: d.into(),
         };
 
-        *(f(&mut sim.inst_mut::<apb_target_gpio>(cntr))) = req;
+        *(f(&mut instances.inst_mut::<apb_target_gpio>(cntr))) = req;
         sim.fire_next_edges();
-        f(&mut sim.inst_mut::<apb_target_gpio>(cntr)).penable = true.into();
+        f(&mut instances.inst_mut::<apb_target_gpio>(cntr)).penable = true.into();
         sim.fire_next_edges();
-        f(&mut sim.inst_mut::<apb_target_gpio>(cntr)).psel = false.into();
+        f(&mut instances.inst_mut::<apb_target_gpio>(cntr)).psel = false.into();
         sim.fire_next_edges();
 
         sim.fire_next_edges();

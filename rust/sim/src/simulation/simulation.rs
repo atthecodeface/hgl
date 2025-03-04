@@ -190,6 +190,13 @@ pub struct SimulationBody<'s> {
     inner: Arc<SimulationBodyInner<'s>>,
 }
 
+impl<'s> std::ops::Deref for SimulationBody<'s> {
+    type Target = SimulationBodyInner<'s>;
+    fn deref(&self) -> &SimulationBodyInner<'s> {
+        self.inner.deref()
+    }
+}
+
 //ip SimulationBody
 impl<'s> SimulationBody<'s> {
     //cp new
@@ -280,6 +287,15 @@ impl Simulation<'_> {
         assert!(self.body.is_empty(), "Build should be empty if being built");
         self.control.borrow_mut().clocks.derive_schedule();
         self.body = SimulationBody::new(self.build.take().unwrap());
+    }
+
+    //mp instances
+    pub fn instances(&self) -> SimulationBody {
+        assert!(
+            self.build.is_none(),
+            "Can only get instances after prepare_simulation"
+        );
+        self.body.clone()
     }
 
     //mp start
@@ -436,7 +452,11 @@ impl Simulation<'_> {
             };
             inner.instantiate::<CB, C>(&mut *control, full_name)
         };
-        self.body.inner.instances[handle].configure::<C, _>(&mut *control, handle, config_fn)?;
+        self.build.as_mut().unwrap().instances[handle].configure::<C, _>(
+            &mut *control,
+            handle,
+            config_fn,
+        )?;
         Ok(handle)
     }
 

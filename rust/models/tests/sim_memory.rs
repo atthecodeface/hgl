@@ -11,23 +11,24 @@ fn sim_memory() -> Result<(), String> {
     let mem2 = sim.instantiate::<Mem32x31, _, _>("memory_2", || 32)?;
 
     sim.prepare_simulation();
+    let instances = sim.instances();
     sim.start(true)?;
 
     {
-        let _mem = sim.inst::<Mem32x31>(mem1);
-        let _mem2 = sim.inst::<Mem32x31>(mem2);
-        let _mema = sim.inst::<Mem32x31>(mem1);
-        let _mem2a = sim.inst::<Mem32x31>(mem2);
+        let _mem = instances.inst::<Mem32x31>(mem1);
+        let _mem2 = instances.inst::<Mem32x31>(mem2);
+        let _mema = instances.inst::<Mem32x31>(mem1);
+        let _mem2a = instances.inst::<Mem32x31>(mem2);
     }
     let address_name = sim
         .find_name("address")
         .expect("Memory must have declared the 'address' state");
-    let address_index = sim
+    let address_index = instances
         .instance(mem1)
         .state_index(address_name)
         .expect("Memory must have declared the 'address' state");
     {
-        let mut mem = sim.inst_mut::<Mem32x31>(mem1);
+        let mut mem = instances.inst_mut::<Mem32x31>(mem1);
         let inputs = mem.inputs_mut();
         inputs.read_enable |= true;
     }
@@ -35,7 +36,7 @@ fn sim_memory() -> Result<(), String> {
     dbg!(&sim);
 
     // mem : RefMutInstance<Mem32x32>
-    let mut mem = sim.inst_mut::<Mem32x31>(mem1);
+    let mut mem = instances.inst_mut::<Mem32x31>(mem1);
     mem.inputs_mut().read_enable &= false;
     let clk = SimEdgeMask::default().add_posedge(0);
     mem.clock(clk);

@@ -7,36 +7,37 @@ fn sim_threaded() -> Result<(), String> {
     let clk = sim.add_clock("clk", 0, 1, 0)?;
     let m = sim.instantiate::<Threaded, _, _>("threaded", || ())?;
 
-    let mclk = sim
-        .instance(m)
-        .state_index(sim.find_name("clk").unwrap())
-        .unwrap();
+    //    let mclk = sim
+    //        .instance(m)
+    //        .state_index(sim.find_name("clk").unwrap())
+    //        .unwrap();
 
     sim.connect_clock(clk, m, 0); // mclk);
 
     sim.prepare_simulation();
+    let instances = sim.instances();
     sim.start(true)?;
 
-    sim.inst_mut::<Threaded>(m).inputs.reset_n = true;
+    instances.inst_mut::<Threaded>(m).inputs.reset_n = true;
     sim.fire_next_edges();
 
-    sim.inst_mut::<Threaded>(m).inputs.start = true;
+    instances.inst_mut::<Threaded>(m).inputs.start = true;
     sim.fire_next_edges();
-    sim.inst_mut::<Threaded>(m).inputs.start = false;
+    instances.inst_mut::<Threaded>(m).inputs.start = false;
 
     for _ in 0..10_000 {
         sim.fire_next_edges();
     }
 
-    sim.inst_mut::<Threaded>(m).inputs.stop = true;
+    instances.inst_mut::<Threaded>(m).inputs.stop = true;
     sim.fire_next_edges();
-    sim.inst_mut::<Threaded>(m).inputs.stop = false;
+    instances.inst_mut::<Threaded>(m).inputs.stop = false;
 
     sim.fire_next_edges();
 
     eprintln!(
         "Time after while running edges {}",
-        sim.inst_mut::<Threaded>(m).outputs.q
+        instances.inst_mut::<Threaded>(m).outputs.q
     );
 
     for _ in 0..10_000 {
@@ -45,7 +46,7 @@ fn sim_threaded() -> Result<(), String> {
 
     eprintln!(
         "Time after edges stopped {}",
-        sim.inst_mut::<Threaded>(m).outputs.q
+        instances.inst_mut::<Threaded>(m).outputs.q
     );
 
     dbg!(&sim);
