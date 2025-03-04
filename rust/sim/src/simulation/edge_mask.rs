@@ -29,4 +29,8 @@ impl SimEdgeMask {
     pub fn set_negedge(&mut self, input: usize) {
         self.0 |= (2 << (2 * input)) as u64;
     }
+    /// Return true if self contains all of others
+    pub fn contains_all(&self, others: &SimEdgeMask) -> bool {
+        (self.0 & others.0) == others.0
+    }
 }

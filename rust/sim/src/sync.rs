@@ -92,13 +92,24 @@ pub enum SimWaitResult {
 //tt SimBlah
 /// Trait provided by a polling
 pub trait SimBlah: Send + 'static {
-    fn poll(&mut self, edges: &SimEdgeMask) -> SimWaitResult {
+    fn poll(&mut self, _edges: &SimEdgeMask) -> SimWaitResult {
         SimWaitResult::Ready
     }
 }
 
 //ip SimBlah for () - enable a null poll
 impl SimBlah for () {}
+
+//ip SimBlah for SimEdgeMask - enable a null poll
+impl SimBlah for SimEdgeMask {
+    fn poll(&mut self, edges: &SimEdgeMask) -> SimWaitResult {
+        if edges.contains_all(self) {
+            SimWaitResult::Ready
+        } else {
+            SimWaitResult::Other
+        }
+    }
+}
 
 //tp BarrierWaitResult
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -192,6 +203,10 @@ impl WorkerBarrierInner {
 
     //mp wait
     /// Invoked by the worker thread
+    ///
+    /// Adds the thread as a worker that is waiting to the TockBarrier
+    ///
+    /// Returns when the TockBarrier has collected all workers and then issued sy
     fn wait<T: SimBlah>(&self, tock_barrier: &TockBarrier, t: T) -> BarrierWaitResult {
         let mut lock = self.lock.lock().unwrap();
         lock.poll = Box::new(t);
@@ -311,25 +326,22 @@ impl TockBarrier {
         lock.finish = true;
     }
 
-    //ap num_running
-    fn num_running(&self) -> usize {
-        self.lock.lock().unwrap().num_running
-    }
-
     //ap finish
     fn finish(&self) -> bool {
         self.lock.lock().unwrap().finish
     }
 
     //mp wait_for_all_workers
+    /// Invoked by the main thread to ensure all threads are waiting
+    ///
+    /// Returns when all worker threads are at the 'wait' point
     pub fn wait_for_all_workers(&self) {
-        let mut lock = self.lock.lock().unwrap();
-        if lock.num_running > lock.waiting {
-            let new_lock = self
+        let tbs = self.lock.lock().unwrap();
+        if tbs.num_running > tbs.waiting {
+            let _tbs = self
                 .cvar
-                .wait_while(lock, |tbs| tbs.num_running > tbs.waiting)
+                .wait_while(tbs, |tbs| tbs.num_running > tbs.waiting)
                 .unwrap();
-            lock = new_lock;
         }
     }
 
@@ -415,15 +427,17 @@ impl BarrierInner {
         self.tock_barrier.lock.lock().unwrap().added_workers
     }
 
-    //ap running_workers
-    fn running_workers(&self) -> usize {
-        self.tock_barrier.num_running()
-    }
-
     //mp run_workers
+    /// Invoked by the main thread when all workers are at the 'wait' point
+    ///
+    /// Returns when they have been started
     pub fn run_workers<const NBYTES: usize>(&self, edges: &SimEdgeMask) -> usize {
         let mut bits = BitSet::<{ NBYTES }>::new();
         let mut running = 0;
+
+        // Determine if the main thread wants to finish
+        //
+        // This should not be asserted in the current implementation
         let finish = self.tock_barrier.finish();
         for (i, w) in self.workers.iter().enumerate() {
             let (ready, completed) = w.poll(edges);
@@ -443,7 +457,23 @@ impl BarrierInner {
         running
     }
 
+    //mp finish
+    /// Invoked by the main thread when all workers are at the 'wait' point
+    ///
+    /// Returns when they have been started
+    fn finish(&self) {
+        let n = self.workers.len();
+        self.tock_barrier.set_finish();
+        self.tock_barrier.set_workers_running(n);
+        for w in self.workers.iter() {
+            w.finish();
+        }
+    }
+
     //mp wait_for_all_workers
+    /// Invoked by the main thread in 'sync' to ensure workers are waiting
+    ///
+    /// Returns when all worker threads are at the 'wait' point
     pub fn wait_for_all_workers(&self) {
         self.tock_barrier.wait_for_all_workers();
     }
@@ -491,15 +521,7 @@ impl BarrierInner {
         self.workers[worker].complete(&self.tock_barrier);
     }
 
-    //mp finish
-    fn finish(&self) {
-        let n = self.workers.len();
-        self.tock_barrier.set_finish();
-        self.tock_barrier.set_workers_running(n);
-        for w in self.workers.iter() {
-            w.finish();
-        }
-    }
+    //zz All done
 }
 
 //tp Barrier
@@ -545,15 +567,24 @@ impl Barrier {
     }
 
     //mp sync
+    ///
+    /// Returns when all worker threads are at the 'wait' point
     pub fn sync(&self) {
         let _ = self.inner.wait_for_all_workers();
     }
 
     //mp run_workers
+    /// Invoked by the main thread when all workers are at the 'wait' point
+    ///
+    /// Returns when they have been started
     pub fn run_workers<const NBYTES: usize>(&self, edges: &SimEdgeMask) -> usize {
         self.inner.run_workers::<NBYTES>(edges)
     }
 
+    //mp finish
+    /// Invoked by the main thread when all workers are at the 'wait' point
+    ///
+    /// Returns when they have been started
     pub fn finish(&self) {
         self.inner.finish()
     }
@@ -594,24 +625,39 @@ impl std::ops::Drop for Worker {
 #[test]
 fn test1() {
     let n = 10;
+    let run_length = n * 10_000;
     let barrier = Barrier::new(32);
+
+    fn test_loop(wt: Worker, i: usize) -> usize {
+        //                 assert_eq!(i+2, tn, "Thread id should match accounting for index of 1 and main thread is first index");
+        let edges = SimEdgeMask::none().add_posedge(i);
+        // Adding this does not affect the 9999/10000 thing
+        std::thread::sleep(std::time::Duration::new(0, 100_000));
+        let mut count: usize = 0;
+        loop {
+            // eprintln!("Loop {}", wt.worker());
+            match wt.wait_poll(edges) {
+                BarrierWaitResult::Started => {
+                    count += 1;
+                }
+                BarrierWaitResult::Stuff => {
+                    count += 1;
+                }
+                BarrierWaitResult::Finish => {
+                    break;
+                }
+            }
+        }
+        count
+    }
     eprintln!("Entering scope");
     std::thread::scope(|s| {
+        let mut w = vec![];
         for i in 0..n {
             let wt = barrier.add_worker();
-            s.spawn(move || {
-                //                 assert_eq!(i+2, tn, "Thread id should match accounting for index of 1 and main thread is first index");
-                loop {
-                    // eprintln!("Loop {}", wt.worker());
-                    match wt.wait() {
-                        BarrierWaitResult::Started => {}
-                        BarrierWaitResult::Stuff => {}
-                        BarrierWaitResult::Finish => {
-                            break;
-                        }
-                    }
-                }
-            });
+            // Possibly put this into barrier...
+            let jt = s.spawn(move || test_loop(wt, i));
+            w.push(jt);
         }
         assert_eq!(
             barrier.added_workers(),
@@ -619,17 +665,33 @@ fn test1() {
             "Must have n things spawned plus main thread"
         );
         eprintln!("Start");
+        // Adding this does not impact the 9999/10000
+        // std::thread::sleep(std::time::Duration::new(0, 100_000));
         barrier.start();
         eprintln!("Started");
-        let edges = SimEdgeMask::default();
-        for _ in 0..100_000 {
+        for i in 0..run_length {
+            let edges = SimEdgeMask::none().add_posedge(0).add_posedge(i % n);
             // eprintln!("Sync");
             barrier.sync();
             // eprintln!("Synced, runing workers");
             barrier.run_workers::<8>(&edges);
         }
         eprintln!("Finish");
+        barrier.sync();
         barrier.finish();
-        eprintln!("Finished");
+        let mut counts = vec![];
+        for jt in w {
+            counts.push(jt.join().unwrap());
+        }
+        eprintln!("Counts {:?}", counts);
+        assert_eq!(counts[0], run_length, "thread 0 occurs on every tick");
+        for i in 1..n {
+            assert_eq!(
+                counts[i],
+                run_length / n,
+                "thread {i} occurs on every nth tick"
+            );
+        }
     });
+    eprintln!("Finished");
 }
