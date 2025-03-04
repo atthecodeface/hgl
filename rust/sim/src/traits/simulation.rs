@@ -35,7 +35,13 @@ pub trait SimRegister {
     ///
     /// This takes an immutable 'self' as the instance invoking the
     /// call is probably part of 'self'
-    fn register_input_edge(&self, handle: Self::Handle, input: usize, posedge: bool, negedge: bool);
+    fn register_input_edge(
+        &mut self,
+        handle: Self::Handle,
+        input: usize,
+        posedge: bool,
+        negedge: bool,
+    );
 
     //mp comb_path
     /// Called by a component to indicate there are combinational
@@ -82,7 +88,7 @@ pub trait SimRegister {
     /// This takes an immutable 'self' as the instance invoking the
     /// call is probably part of 'self'
     fn comb_path(
-        &self,
+        &mut self,
         handle: Self::Handle,
         outputs_ib: &[u8],
         inputs_ib: &[u8],
@@ -214,6 +220,8 @@ pub trait ComponentBuilder {
     //bp instantiate
     /// Instantiate a component, which in turn can be configured using
     /// it 'configure' method in its 'Component' trait prior to first use
+    ///
+    /// &mut SimRegister is provided to register edges and state
     fn instantiate<S: SimRegister>(sim: &mut S, name: SimNsName) -> Self::Build;
 }
 
@@ -254,7 +262,7 @@ pub trait Component: Simulatable {
     /// Configure the component, called once after it is instantiated
     fn configure<S: SimRegister>(
         &mut self,
-        _sim: &S,
+        _sim: &mut S,
         _handle: S::Handle,
         _config: Self::Config,
     ) -> Result<(), String> {

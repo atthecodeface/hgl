@@ -3,6 +3,7 @@
 #![allow(unused_parens)]
 #![allow(non_camel_case_types)]
 #![allow(unused_variables)]
+#![allow(dead_code)]
 use hgl_sim::prelude::component::*;
 
 use crate::t_apb_processor_request;
@@ -1583,7 +1584,7 @@ impl Component for apb_target_gpio {
     }
     fn configure<S: SimRegister>(
         &mut self,
-        sim: &S,
+        sim: &mut S,
         handle: S::Handle,
         config: (),
     ) -> Result<(), String> {

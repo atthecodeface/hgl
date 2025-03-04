@@ -12,7 +12,7 @@ pub use instance::{Instance, InstanceHandle};
 pub use instance_ref::{RefInstance, RefMutInstance};
 pub use names::{Name, NameFmt, Names, NamespaceStack, NsNameFmt, SimNsName};
 pub use port::{SimStateIndex, SimStateInfo, StateDesc};
-pub use simulation::Simulation;
+pub use simulation::{Simulation, SimulationBody, SimulationControl};
 
 //a Types
 //tp SimReset

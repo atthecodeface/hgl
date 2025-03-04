@@ -1,12 +1,13 @@
 //a Imports
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use hgl_indexed_vec::VecWithIndex;
 
 use crate::simulation::{
     Clock, ClockArray, ClockIndex, Instance, InstanceHandle, Name, NameFmt, Names, NamespaceStack,
-    NsNameFmt, RefInstance, RefMutInstance, SimNsName,
+    NsNameFmt, RefInstance, RefMutInstance, SimEdgeMask, SimNsName,
 };
 use crate::traits::{Component, ComponentBuilder, SimHandle, SimRegister, Simulatable};
 
@@ -30,7 +31,7 @@ pub enum Running {
     Stopped,
 }
 #[derive(Default)]
-struct SimulationControl<'s> {
+pub struct SimulationControl<'s> {
     /// Names and namespaces in the simulation
     names: Names<'s>,
     /// Current namespace stack
@@ -53,6 +54,11 @@ impl SimulationControl<'_> {
     pub fn name_fmt(&self, name: Name) -> NameFmt {
         self.names.name_fmt(name)
     }
+    //mp add_name
+    pub fn add_name(&mut self, name: &str) -> Name {
+        self.names.add_name(name)
+    }
+
     //ap iter_clocks
     /// Iterate through the clocks
     pub fn iter_clocks(&self) -> impl std::iter::Iterator<Item = &Clock> {
@@ -96,14 +102,130 @@ impl SimulationControl<'_> {
 impl SimHandle for InstanceHandle {}
 
 //a Simulation
+//tp SimulationBodyInner
+pub struct SimulationBodyInner<'s> {
+    /// Instances which can be individually executed by separate
+    /// threads
+    instances: VecWithIndex<'s, SimNsName, InstanceHandle, Instance>,
+}
+
+//ip SimulationBodyInner
+impl SimulationBodyInner<'_> {
+    //cp new
+    /// Create a new simulation
+    pub fn new() -> Self {
+        let instances = VecWithIndex::default();
+        Self { instances }
+    }
+
+    //ap iter_instances
+    /// Iterate through the instances
+    pub fn iter_instances(&self) -> impl std::iter::Iterator<Item = &Instance> {
+        self.instances.into_iter()
+    }
+
+    //mp fire_next_edges
+    pub fn fire_next_edges(&self, inst_edges: &[(InstanceHandle, SimEdgeMask)]) {
+        for (inst, edge_mask) in inst_edges {
+            self.instances[*inst]
+                .borrow_sim_mut()
+                .unwrap()
+                .clock(*edge_mask);
+        }
+    }
+
+    //mp instantiate
+    /// Instantiate a component in the simulation with a given name,
+    /// using the specified [ComponentBuilder]
+    ///
+    /// After instantiation the 'config_fn' is executed to provide the
+    /// configuration for the component
+    pub fn instantiate<CB: ComponentBuilder<Build = C>, C: Component>(
+        &mut self,
+        control: &mut SimulationControl,
+        full_name: SimNsName,
+    ) -> InstanceHandle {
+        let component = CB::instantiate(control, full_name);
+        let instance = Instance::new(full_name, component);
+        self.instances.insert(full_name, |_| instance).unwrap()
+    }
+
+    //ap map_mut_simulatables
+    /// Iterate through the instances
+    fn map_mut_simulatables<F: FnMut(&mut dyn Simulatable)>(&self, f: &mut F) -> bool {
+        let mut mapped_all = true;
+        for i in self.iter_instances() {
+            use std::ops::DerefMut;
+            if let Some(mut s) = i.borrow_sim_mut() {
+                f(s.deref_mut().deref_mut())
+            } else {
+                mapped_all = false;
+            }
+        }
+        mapped_all
+    }
+    //ap inst
+    /// Get a reference to a component instance given its handle
+    pub fn inst<C: Component>(&self, handle: InstanceHandle) -> RefInstance<C> {
+        self.instances[handle].borrow().unwrap()
+    }
+
+    //ap inst_mut
+    /// Get a mutable reference to a component instance given its handle
+    pub fn inst_mut<C: Component>(&self, handle: InstanceHandle) -> RefMutInstance<C> {
+        self.instances[handle].borrow_mut().unwrap()
+    }
+
+    //ap instance
+    /// Get the Instance
+    pub fn instance(&self, handle: InstanceHandle) -> &Instance {
+        &self.instances[handle]
+    }
+}
+
+//tp SimulationBody
+pub struct SimulationBody<'s> {
+    /// Instances which can be individually executed by separate
+    /// threads
+    inner: Arc<SimulationBodyInner<'s>>,
+}
+
+//ip SimulationBody
+impl<'s> SimulationBody<'s> {
+    //cp new
+    /// Create a new simulation
+    pub fn new(inner: SimulationBodyInner<'s>) -> Self {
+        let inner = Arc::new(inner);
+        Self { inner }
+    }
+    //cp empty
+    /// Create a new simulation
+    pub fn empty() -> Self {
+        Self::new(SimulationBodyInner::new())
+    }
+    //cp is_empty
+    /// Create a new simulation
+    pub fn is_empty(&self) -> bool {
+        self.inner.instances.is_empty()
+    }
+}
+
+//ip Clone for SimulationBody
+impl<'s> Clone for SimulationBody<'s> {
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+        }
+    }
+}
+
 //tp Simulation
 pub struct Simulation<'s> {
     /// Control of the simulation that can change during simulation itself
     control: RefCell<SimulationControl<'s>>,
 
-    /// Instances which can be individually executed by separate
-    /// threads
-    instances: VecWithIndex<'s, SimNsName, InstanceHandle, Instance>,
+    build: Option<SimulationBodyInner<'s>>,
+    body: SimulationBody<'s>,
 }
 
 //ip Debug for Simulation
@@ -119,7 +241,7 @@ impl std::fmt::Debug for Simulation<'_> {
             fmt.write_str("'")?;
         }
         write!(fmt, "], instances:[")?;
-        for (i, inst) in self.iter_instances().enumerate() {
+        for (i, inst) in self.body.inner.iter_instances().enumerate() {
             if i > 0 {
                 fmt.write_str(", ")?;
             }
@@ -140,13 +262,24 @@ impl Simulation<'_> {
     /// Create a new simulation
     pub fn new() -> Self {
         let control = RefCell::new(SimulationControl::default());
-        let instances = VecWithIndex::default();
-        Self { control, instances }
+        let build = Some(SimulationBodyInner::new());
+        let body = SimulationBody::empty();
+        Self {
+            control,
+            body,
+            build,
+        }
     }
 
     //mp prepare_simulation
-    pub fn prepare_simulation(&self) {
+    pub fn prepare_simulation(&mut self) {
+        assert!(
+            self.build.is_some(),
+            "Can only prepare simulation if it was being built"
+        );
+        assert!(self.body.is_empty(), "Build should be empty if being built");
         self.control.borrow_mut().clocks.derive_schedule();
+        self.body = SimulationBody::new(self.build.take().unwrap());
     }
 
     //mp start
@@ -220,12 +353,8 @@ impl Simulation<'_> {
     pub fn fire_next_edges(&self) {
         let ie = self.control.borrow_mut().clocks.next_edges();
         let c = self.control.borrow();
-        for (inst, edge_mask) in c.clocks.instance_edges(&ie).iter() {
-            self.instances[*inst]
-                .borrow_sim_mut()
-                .unwrap()
-                .clock(*edge_mask);
-        }
+        let inst_edges = c.clocks.instance_edges(&ie);
+        self.body.inner.fire_next_edges(inst_edges);
     }
 
     //mp time
@@ -298,25 +427,22 @@ impl Simulation<'_> {
                     control.ns_name_fmt(ns_name)
                 )
             })?;
-        drop(control);
-        let component = CB::instantiate(self, full_name);
-        let instance = Instance::new(full_name, component);
-        let handle = self
-            .instances
-            .insert(full_name, |_| instance)
-            .map_err(|_e| {
-                format!(
-                    "Instance with name {} already exists",
-                    self.control.borrow().ns_name_fmt(full_name)
-                )
-            })?;
-        self.instances[handle].configure::<C, _>(self, handle, config_fn)?;
+        if self.body.inner.instances.contains(&full_name) {
+            return Err(format!("Duplicate instance name {name}"));
+        };
+        let handle = {
+            let Some(inner) = &mut self.build else {
+                panic!("Argh");
+            };
+            inner.instantiate::<CB, C>(&mut *control, full_name)
+        };
+        self.body.inner.instances[handle].configure::<C, _>(&mut *control, handle, config_fn)?;
         Ok(handle)
     }
 
     //mp add_name
     pub fn add_name(&self, name: &str) -> Name {
-        self.control.borrow_mut().names.add_name(name)
+        self.control.borrow_mut().add_name(name)
     }
 
     //mp find_name
@@ -324,42 +450,10 @@ impl Simulation<'_> {
         self.control.borrow().names.find_name(name)
     }
 
-    //ap map_mut_simulatables
+    //mp map_mut_simulatables
     /// Iterate through the instances
     fn map_mut_simulatables<F: FnMut(&mut dyn Simulatable)>(&self, f: &mut F) -> bool {
-        let mut mapped_all = true;
-        for i in self.iter_instances() {
-            use std::ops::DerefMut;
-            if let Some(mut s) = i.borrow_sim_mut() {
-                f(s.deref_mut().deref_mut())
-            } else {
-                mapped_all = false;
-            }
-        }
-        mapped_all
-    }
-
-    //ap iter_instances
-    /// Iterate through the instances
-    pub fn iter_instances(&self) -> impl std::iter::Iterator<Item = &Instance> {
-        self.instances.into_iter()
-    }
-
-    //ap inst
-    /// Get a reference to a component instance given its handle
-    pub fn inst<C: Component>(&self, handle: InstanceHandle) -> RefInstance<C> {
-        self.instances[handle].borrow().unwrap()
-    }
-
-    //ap inst_mut
-    /// Get a mutable reference to a component instance given its handle
-    pub fn inst_mut<C: Component>(&self, handle: InstanceHandle) -> RefMutInstance<C> {
-        self.instances[handle].borrow_mut().unwrap()
-    }
-    //ap instance
-    /// Get the Instance
-    pub fn instance(&self, handle: InstanceHandle) -> &Instance {
-        &self.instances[handle]
+        self.body.inner.map_mut_simulatables(f)
     }
 
     //mp connect_clock
@@ -370,22 +464,21 @@ impl Simulation<'_> {
     }
 }
 
-//ip SimRegister for Simulation
-impl SimRegister for Simulation<'_> {
+//ip SimRegister for SimulationControl
+impl SimRegister for SimulationControl<'_> {
     type Handle = InstanceHandle;
 
     fn register_input_edge(
-        &self,
+        &mut self,
         handle: Self::Handle,
         input: usize,
         posedge: bool,
         negedge: bool,
     ) {
-        let mut control = self.control.borrow_mut();
-        control.register_input_use(handle, input, posedge, negedge);
+        self.register_input_use(handle, input, posedge, negedge);
     }
     fn comb_path(
-        &self,
+        &mut self,
         _handle: Self::Handle,
         _outputs_ib: &[u8],
         _inputs_ib: &[u8],

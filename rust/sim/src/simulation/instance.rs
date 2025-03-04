@@ -5,7 +5,8 @@ use std::collections::HashMap;
 use hgl_indexed_vec::make_index;
 
 use crate::simulation::{
-    Name, Names, RefInstance, RefMutInstance, SimNsName, SimStateIndex, Simulation, StateDesc,
+    Name, Names, RefInstance, RefMutInstance, SimNsName, SimStateIndex, Simulation,
+    SimulationControl, StateDesc,
 };
 use crate::traits::{Component, Simulatable};
 use crate::values::fmt;
@@ -110,18 +111,18 @@ impl Instance {
     //mp configure
     pub fn configure<C: Component, F: FnOnce() -> <C as Component>::Config>(
         &self,
-        sim: &Simulation,
+        control: &mut SimulationControl,
         handle: InstanceHandle,
         config_fn: F,
     ) -> Result<(), String> {
         let mut component = self.borrow_mut::<C>().unwrap();
-        component.configure(sim, handle, config_fn())?;
+        component.configure(control, handle, config_fn())?;
         for i in 0..usize::MAX {
             let sdi = i.into();
             let Some(port_info) = component.state_info(sdi) else {
                 break;
             };
-            let name = sim.add_name(port_info.name());
+            let name = control.add_name(port_info.name());
             let port = StateDesc::new(sdi, &port_info, None);
             self.state_map.borrow_mut().insert(name, port);
         }

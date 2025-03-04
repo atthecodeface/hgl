@@ -156,7 +156,7 @@ where
     }
     fn configure<S: SimRegister>(
         &mut self,
-        sim: &S,
+        sim: &mut S,
         handle: S::Handle,
         config: Option<V>,
     ) -> Result<(), String> {

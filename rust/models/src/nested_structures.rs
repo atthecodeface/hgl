@@ -3,6 +3,7 @@
 #![allow(unused_parens)]
 #![allow(non_camel_case_types)]
 #![allow(unused_variables)]
+#![allow(dead_code)]
 use hgl_sim::prelude::component::*;
 
 //a  Types for nested_structures
@@ -309,7 +310,7 @@ impl Component for nested_structures {
     }
     fn configure<S: SimRegister>(
         &mut self,
-        sim: &S,
+        sim: &mut S,
         handle: S::Handle,
         config: (),
     ) -> Result<(), String> {
