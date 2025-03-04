@@ -361,7 +361,10 @@ impl Simulation<'_> {
     }
 
     //mp next_edges
-    pub fn next_edges(&self) -> (usize, usize) {
+    /// Get the next *system* clock edges to fire
+    ///
+    /// This moves on time to that for the clock edges
+    pub fn next_edges(&self) -> SimEdgeMask {
         self.control.borrow_mut().clocks.next_edges()
     }
 

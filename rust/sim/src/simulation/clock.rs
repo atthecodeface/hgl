@@ -159,32 +159,31 @@ impl Schedule {
     ///
     /// This can only return two empty masks if there are no clock
     /// edges left before the end of time
-    fn next_edges(&mut self, clocks: &[Clock]) -> (usize, usize) {
-        let mut negedge_mask = 0;
-        let mut posedge_mask = 0;
+    fn next_edges(&mut self, system_clocks: &[Clock]) -> SimEdgeMask {
+        let mut edges = SimEdgeMask::none();
         loop {
             self.time = self.next_time;
             let mut earliest = usize::MAX;
-            for (i, _x) in clocks.iter().enumerate().take(self.clock_pos.len()) {
+            for (i, _x) in system_clocks.iter().enumerate().take(self.clock_pos.len()) {
                 let (time, posedge, negedge) =
-                    self.clock_pos[i].next_time_and_edges(&clocks[i], self.time);
+                    self.clock_pos[i].next_time_and_edges(&system_clocks[i], self.time);
                 earliest = earliest.min(time);
                 if posedge {
-                    posedge_mask |= 1 << i;
+                    edges.set_posedge(i);
                 }
                 if negedge {
-                    negedge_mask |= 1 << i;
+                    edges.set_negedge(i);
                 }
             }
             self.next_time = earliest;
             if earliest == usize::MAX {
                 break;
             }
-            if negedge_mask != 0 || posedge_mask != 0 {
+            if !edges.is_none() {
                 break;
             }
         }
-        (posedge_mask, negedge_mask)
+        edges
     }
 }
 
@@ -209,7 +208,7 @@ pub struct ClockArray<'a> {
     /// This should be rebuilt when time is reset
     schedule: Option<Schedule>,
 
-    instance_edges: HashMap<(usize, usize), Vec<(InstanceHandle, SimEdgeMask)>>,
+    instance_edges: HashMap<SimEdgeMask, Vec<(InstanceHandle, SimEdgeMask)>>,
     clock_uses: HashMap<(ClockIndex, bool), Vec<ClockUse>>,
 }
 
@@ -258,20 +257,20 @@ impl ClockArray<'_> {
     }
 
     //mp derive_instance_edges_of_masks
-    pub fn derive_instance_edges_of_masks(&mut self, ie: &(usize, usize)) {
-        if self.instance_edges.contains_key(ie) {
+    pub fn derive_instance_edges_of_masks(&mut self, system_edges: &SimEdgeMask) {
+        if self.instance_edges.contains_key(system_edges) {
             return;
         }
         let mut blah: HashMap<InstanceHandle, SimEdgeMask> = HashMap::new();
         for i in 0..self.clocks.len() {
-            if (ie.0 >> i) & 1 == 1 {
+            if system_edges.is_posedge(i) {
                 if let Some(x) = self.clock_uses.get(&(ClockIndex::from_usize(i), true)) {
                     for c in x.iter() {
                         blah.entry(c.instance).or_default().set_posedge(c.input);
                     }
                 }
             }
-            if (ie.1 >> i) & 1 == 1 {
+            if system_edges.is_negedge(i) {
                 if let Some(x) = self.clock_uses.get(&(ClockIndex::from_usize(i), false)) {
                     for c in x.iter() {
                         blah.entry(c.instance).or_default().set_negedge(c.input);
@@ -280,12 +279,12 @@ impl ClockArray<'_> {
             }
         }
         let blah: Vec<(InstanceHandle, SimEdgeMask)> = blah.into_iter().collect();
-        self.instance_edges.insert(*ie, blah);
+        self.instance_edges.insert(*system_edges, blah);
     }
 
     //mp next_edges
     #[track_caller]
-    pub fn next_edges(&mut self) -> (usize, usize) {
+    pub fn next_edges(&mut self) -> SimEdgeMask {
         let Some(schedule) = &mut self.schedule else {
             panic!("Schedule has not been set up - no call of derive_schedule yet");
         };
@@ -297,8 +296,8 @@ impl ClockArray<'_> {
     }
 
     //mp instance_edges
-    pub fn instance_edges(&self, edges: &(usize, usize)) -> &[(InstanceHandle, SimEdgeMask)] {
-        let Some(ie) = self.instance_edges.get(edges) else {
+    pub fn instance_edges(&self, system_edges: &SimEdgeMask) -> &[(InstanceHandle, SimEdgeMask)] {
+        let Some(ie) = self.instance_edges.get(system_edges) else {
             return &[];
         };
         ie

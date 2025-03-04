@@ -1,4 +1,4 @@
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct SimEdgeMask(u64);
 impl SimEdgeMask {
     pub fn none() -> Self {
@@ -13,10 +13,12 @@ impl SimEdgeMask {
     pub const fn is_negedge(&self, input: usize) -> bool {
         ((self.0 as usize) >> (input * 2)) & 2 != 0
     }
+    #[must_use]
     pub fn add_posedge(mut self, input: usize) -> Self {
         self.0 |= (1 << (2 * input)) as u64;
         self
     }
+    #[must_use]
     pub fn add_negedge(mut self, input: usize) -> Self {
         self.0 |= (2 << (2 * input)) as u64;
         self
