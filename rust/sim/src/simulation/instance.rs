@@ -6,7 +6,7 @@ use hgl_indexed_vec::make_index;
 
 use crate::simulation::{
     Name, Names, RefInstance, RefMutInstance, SimNsName, SimStateIndex, Simulation,
-    SimulationControl, StateDesc,
+    SimulationContents, StateDesc,
 };
 use crate::traits::{Component, Simulatable};
 use crate::values::fmt;
@@ -111,7 +111,7 @@ impl Instance {
     //mp configure
     pub fn configure<C: Component, F: FnOnce() -> <C as Component>::Config>(
         &self,
-        control: &mut SimulationControl,
+        control: &mut SimulationContents,
         handle: InstanceHandle,
         config_fn: F,
     ) -> Result<(), String> {

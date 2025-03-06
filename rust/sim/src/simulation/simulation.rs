@@ -7,97 +7,11 @@ use hgl_indexed_vec::VecWithIndex;
 
 use crate::simulation::{
     Clock, ClockArray, ClockIndex, Instance, InstanceHandle, Name, NameFmt, Names, NamespaceStack,
-    NsNameFmt, RefInstance, RefMutInstance, SimEdgeMask, SimNsName,
+    NsNameFmt, RefInstance, RefMutInstance, SimEdgeMask, SimNsName, SimulationContents,
 };
-use crate::traits::{Component, ComponentBuilder, SimHandle, SimRegister, Simulatable};
+use crate::traits::{Component, ComponentBuilder, SimHandle, Simulatable};
 
-//a SimulationControl
-//tp EdgeUse
-#[derive(Default, Debug)]
-pub struct EdgeUse {
-    instance: InstanceHandle,
-    input: usize,
-    posedge: bool,
-    negedge: bool,
-}
-
-//tp SimulationControl
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
-pub enum Running {
-    #[default]
-    Idle,
-    Paused,
-    Running,
-    Stopped,
-}
-#[derive(Default)]
-pub struct SimulationControl<'s> {
-    /// Names and namespaces in the simulation
-    names: Names<'s>,
-    /// Current namespace stack
-    namespace_stack: NamespaceStack,
-    /// Use of edges by instances
-    edge_uses: HashMap<InstanceHandle, Vec<EdgeUse>>,
-    /// Clocks used in the simulation
-    clocks: ClockArray<'s>,
-    /// State of simulation
-    running_state: Running,
-}
-
-//ip SimulationControl
-impl SimulationControl<'_> {
-    //ap ns_name_fmt
-    pub fn ns_name_fmt(&self, name: SimNsName) -> NsNameFmt {
-        self.names.ns_name_fmt(name)
-    }
-    //ap name_fmt
-    pub fn name_fmt(&self, name: Name) -> NameFmt {
-        self.names.name_fmt(name)
-    }
-    //mp add_name
-    pub fn add_name(&mut self, name: &str) -> Name {
-        self.names.add_name(name)
-    }
-
-    //ap iter_clocks
-    /// Iterate through the clocks
-    pub fn iter_clocks(&self) -> impl std::iter::Iterator<Item = &Clock> {
-        self.clocks.iter()
-    }
-
-    pub fn register_input_use(
-        &mut self,
-        instance: InstanceHandle,
-        input: usize,
-        posedge: bool,
-        negedge: bool,
-    ) {
-        self.edge_uses.entry(instance).or_default().push(EdgeUse {
-            instance,
-            input,
-            posedge,
-            negedge,
-        });
-    }
-    pub fn connect_clock(&mut self, clock: ClockIndex, instance: InstanceHandle, input: usize) {
-        let Some(edge_uses) = self.edge_uses.get(&instance) else {
-            return;
-        };
-        for e in edge_uses.iter() {
-            if e.input == input {
-                if e.posedge {
-                    self.clocks.edge_used_by(clock, instance, input, true);
-                    // clock posedge used by instance and when its posedge fires must set SimEdgeMask.posedge(input) for the instance
-                }
-                if e.negedge {
-                    // clock negedge used by instance and when its negedge fires must set SimEdgeMask.negedge(input) for the instance
-                    self.clocks.edge_used_by(clock, instance, input, false);
-                }
-            }
-        }
-    }
-}
-
+//a SimulationContents
 //ip SimHandle for InstanceHandle
 impl SimHandle for InstanceHandle {}
 
@@ -142,7 +56,7 @@ impl SimulationBodyInner<'_> {
     /// configuration for the component
     pub fn instantiate<CB: ComponentBuilder<Build = C>, C: Component>(
         &mut self,
-        control: &mut SimulationControl,
+        control: &mut SimulationContents,
         full_name: SimNsName,
     ) -> InstanceHandle {
         let component = CB::instantiate(control, full_name);
@@ -228,8 +142,8 @@ impl<'s> Clone for SimulationBody<'s> {
 
 //tp Simulation
 pub struct Simulation<'s> {
-    /// Control of the simulation that can change during simulation itself
-    control: RefCell<SimulationControl<'s>>,
+    /// Contents of the simulation that can change during simulation itself
+    control: RefCell<SimulationContents<'s>>,
 
     build: Option<SimulationBodyInner<'s>>,
     body: SimulationBody<'s>,
@@ -268,7 +182,7 @@ impl Simulation<'_> {
     //cp new
     /// Create a new simulation
     pub fn new() -> Self {
-        let control = RefCell::new(SimulationControl::default());
+        let control = RefCell::new(SimulationContents::default());
         let build = Some(SimulationBodyInner::new());
         let body = SimulationBody::empty();
         Self {
@@ -299,64 +213,66 @@ impl Simulation<'_> {
     }
 
     //mp start
-    pub fn start(&self, running: bool) -> Result<(), String> {
-        let running_state = self.control.borrow().running_state;
-        if running_state == Running::Idle {
-            let _failed = self.map_mut_simulatables(&mut |s| s.start(running));
-            if running {
-                self.control.borrow_mut().running_state = Running::Running;
+    pub fn start(&self, start_running: bool) -> Result<(), String> {
+        if self.control.borrow().is_idle() {
+            let _failed = self.map_mut_simulatables(&mut |s| s.start(start_running));
+            if start_running {
+                self.control.borrow_mut().set_running();
             } else {
-                self.control.borrow_mut().running_state = Running::Paused;
+                self.control.borrow_mut().set_paused();
             }
             Ok(())
         } else {
             Err(format!(
-                "Could not start; it was already in state {running_state:?}"
+                "Could not start; it was already in state {:?}",
+                self.control.borrow().running_state()
             ))
         }
     }
 
     //mp pause
     pub fn pause(&self) -> Result<(), String> {
-        let running_state = self.control.borrow().running_state;
-        match running_state {
-            Running::Paused => Ok(()),
-            Running::Running => {
-                let _failed = self.map_mut_simulatables(&mut |s| s.pause());
-                Ok(())
-            }
-            _ => Err(format!(
-                "Could not pause; it was already in state {running_state:?}"
-            )),
+        if self.control.borrow().is_paused() {
+            Ok(())
+        } else if self.control.borrow().is_running() {
+            let _failed = self.map_mut_simulatables(&mut |s| s.pause());
+            self.control.borrow_mut().set_paused();
+            Ok(())
+        } else {
+            Err(format!(
+                "Could not pause; it was already in state {:?}",
+                self.control.borrow().running_state()
+            ))
         }
     }
 
     //mp resume
     pub fn resume(&self) -> Result<(), String> {
-        let running_state = self.control.borrow().running_state;
-        match running_state {
-            Running::Running => Ok(()),
-            Running::Paused => {
-                let _failed = self.map_mut_simulatables(&mut |s| s.resume());
-                Ok(())
-            }
-            _ => Err(format!(
-                "Could not resume; it was already in state {running_state:?}"
-            )),
+        if self.control.borrow().is_running() {
+            Ok(())
+        } else if self.control.borrow().is_paused() {
+            let _failed = self.map_mut_simulatables(&mut |s| s.resume());
+            self.control.borrow_mut().set_running();
+            Ok(())
+        } else {
+            Err(format!(
+                "Could not resume; it was already in state {:?}",
+                self.control.borrow().running_state()
+            ))
         }
     }
 
     //mp stop
     pub fn stop(&self) -> Result<(), String> {
-        let running_state = self.control.borrow().running_state;
-        match running_state {
-            Running::Running | Running::Paused => {
-                let _failed = self.map_mut_simulatables(&mut |s| s.stop());
-                Ok(())
-            }
-            _ => Err(format!(
-                "Could not stop; it was already in state {running_state:?}"
-            )),
+        if self.control.borrow().is_running() || self.control.borrow().is_paused() {
+            let _failed = self.map_mut_simulatables(&mut |s| s.stop());
+            self.control.borrow_mut().set_stopped();
+            Ok(())
+        } else {
+            Err(format!(
+                "Could not stop; it was already in state {:?}",
+                self.control.borrow().running_state()
+            ))
         }
     }
 
@@ -484,28 +400,5 @@ impl Simulation<'_> {
         self.control
             .borrow_mut()
             .connect_clock(clock, instance, input);
-    }
-}
-
-//ip SimRegister for SimulationControl
-impl SimRegister for SimulationControl<'_> {
-    type Handle = InstanceHandle;
-
-    fn register_input_edge(
-        &mut self,
-        handle: Self::Handle,
-        input: usize,
-        posedge: bool,
-        negedge: bool,
-    ) {
-        self.register_input_use(handle, input, posedge, negedge);
-    }
-    fn comb_path(
-        &mut self,
-        _handle: Self::Handle,
-        _outputs_ib: &[u8],
-        _inputs_ib: &[u8],
-        _outputs_ia: &[u8],
-    ) {
     }
 }
