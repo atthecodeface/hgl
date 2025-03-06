@@ -66,7 +66,7 @@ impl SimulationBodyInner<'_> {
 
     //ap map_mut_simulatables
     /// Iterate through the instances
-    fn map_mut_simulatables<F: FnMut(&mut dyn Simulatable)>(&self, f: &mut F) -> bool {
+    fn map_mut_simulatables<F: FnMut(&mut dyn Simulatable)>(&self, mut f: F) -> bool {
         let mut mapped_all = true;
         for i in self.iter_instances() {
             use std::ops::DerefMut;
@@ -215,7 +215,7 @@ impl Simulation<'_> {
     //mp start
     pub fn start(&self, start_running: bool) -> Result<(), String> {
         if self.control.borrow().is_idle() {
-            let _failed = self.map_mut_simulatables(&mut |s| s.start(start_running));
+            let _failed = self.map_mut_simulatables(|s| s.start(start_running));
             if start_running {
                 self.control.borrow_mut().set_running();
             } else {
@@ -235,7 +235,7 @@ impl Simulation<'_> {
         if self.control.borrow().is_paused() {
             Ok(())
         } else if self.control.borrow().is_running() {
-            let _failed = self.map_mut_simulatables(&mut |s| s.pause());
+            let _failed = self.map_mut_simulatables(|s| s.pause());
             self.control.borrow_mut().set_paused();
             Ok(())
         } else {
@@ -251,7 +251,7 @@ impl Simulation<'_> {
         if self.control.borrow().is_running() {
             Ok(())
         } else if self.control.borrow().is_paused() {
-            let _failed = self.map_mut_simulatables(&mut |s| s.resume());
+            let _failed = self.map_mut_simulatables(|s| s.resume());
             self.control.borrow_mut().set_running();
             Ok(())
         } else {
@@ -265,7 +265,7 @@ impl Simulation<'_> {
     //mp stop
     pub fn stop(&self) -> Result<(), String> {
         if self.control.borrow().is_running() || self.control.borrow().is_paused() {
-            let _failed = self.map_mut_simulatables(&mut |s| s.stop());
+            let _failed = self.map_mut_simulatables(|s| s.stop());
             self.control.borrow_mut().set_stopped();
             Ok(())
         } else {
@@ -391,7 +391,7 @@ impl Simulation<'_> {
 
     //mp map_mut_simulatables
     /// Iterate through the instances
-    fn map_mut_simulatables<F: FnMut(&mut dyn Simulatable)>(&self, f: &mut F) -> bool {
+    fn map_mut_simulatables<F: FnMut(&mut dyn Simulatable)>(&self, f: F) -> bool {
         self.body.inner.map_mut_simulatables(f)
     }
 
