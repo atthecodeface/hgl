@@ -22,6 +22,46 @@ pub enum BitSet<I: Idx> {
     },
 }
 
+//ip Debug for BitSet
+impl<I: Idx> std::fmt::Debug for BitSet<I> {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        let n = self.num_bits();
+        write!(fmt, "{n}:")?;
+        for (i, b) in self.iter_bits().enumerate() {
+            if b {
+                write!(fmt, "1")?;
+            } else {
+                write!(fmt, "0")?;
+            }
+            if ((n - i) % 8) == 0 {
+                write!(fmt, "_")?;
+            }
+        }
+        Ok(())
+    }
+}
+
+//tp BitSetIter
+pub struct BitSetIter<'a> {
+    i: usize,
+    n: usize,
+    dw: &'a [u64],
+}
+impl<'a> std::iter::Iterator for BitSetIter<'a> {
+    type Item = bool;
+    fn next(&mut self) -> Option<bool> {
+        if self.i >= self.n {
+            None
+        } else {
+            let bi = self.i & 63;
+            let b = 1 << bi;
+            let wi = self.i / 64;
+            self.i += 1;
+            Some((self.dw[wi] & b) != 0)
+        }
+    }
+}
+
 //ip BitSet
 impl<I: Idx> BitSet<I> {
     //fi word_index
@@ -193,14 +233,6 @@ impl<I: Idx> BitSet<I> {
         }
     }
 
-    //mi iter_data
-    fn iter_data(&self) -> impl Iterator<Item = &u64> {
-        match self {
-            Self::Bits { data, .. } => data.iter(),
-            Self::Array { data, .. } => data.iter(),
-        }
-    }
-
     //mi assert_size_match
     #[track_caller]
     fn assert_size_match(&self, other: &Self) {
@@ -209,12 +241,27 @@ impl<I: Idx> BitSet<I> {
         assert_eq!(s, o, "Mismatch in BitSet sizes ({s}, {o})");
     }
 
+    //mi data
+    fn data(&self) -> &[u64] {
+        match self {
+            Self::Bits { data, .. } => data,
+            Self::Array { data, .. } => &*data,
+        }
+    }
+
     //mi iter_data_mut
     fn iter_data_mut(&mut self) -> impl Iterator<Item = &mut u64> {
         match self {
             Self::Bits { data, .. } => data.iter_mut(),
             Self::Array { data, .. } => data.iter_mut(),
         }
+    }
+
+    //mi iter_bits
+    fn iter_bits(&self) -> BitSetIter {
+        let n = self.num_bits();
+        let dw = self.data();
+        BitSetIter { i: 0, n, dw }
     }
 
     //mp complement
@@ -263,7 +310,7 @@ impl<I: Idx> std::ops::BitAndAssign<&BitSet<I>> for BitSet<I> {
     #[track_caller]
     fn bitand_assign(&mut self, other: &Self) {
         self.assert_size_match(other);
-        for (s, o) in self.iter_data_mut().zip(other.iter_data()) {
+        for (s, o) in self.iter_data_mut().zip(other.data().iter()) {
             *s &= *o;
         }
     }
@@ -285,7 +332,7 @@ impl<I: Idx> std::ops::BitOrAssign<&BitSet<I>> for BitSet<I> {
     #[track_caller]
     fn bitor_assign(&mut self, other: &Self) {
         self.assert_size_match(other);
-        for (s, o) in self.iter_data_mut().zip(other.iter_data()) {
+        for (s, o) in self.iter_data_mut().zip(other.data().iter()) {
             *s |= *o;
         }
     }
@@ -303,11 +350,18 @@ impl<'a, I: Idx> std::ops::BitOr<&'a BitSet<I>> for &'a BitSet<I> {
 }
 
 //a Tests
+//tf test_bitset_size
+/// Check that the BitSet is 32 bits on 64-bit processor architectures
 #[test]
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
-fn test_bitset() {
+fn test_bitset_size() {
     assert_eq!(std::mem::size_of::<BitSet<usize>>(), 32);
+}
 
+//tf test_bitset
+/// Check that bits can be set and cleared individually
+#[test]
+fn test_bitset() {
     for i in 0..10 {
         for j in 62..65 {
             let n = 64 * i + j;
@@ -330,6 +384,63 @@ fn test_bitset() {
                 x.set(k, false);
                 assert!(!x.is_set(k), "Bit {k} must not be set");
                 assert!(x.is_unset(k), "Bit {k} must be unset");
+            }
+        }
+    }
+}
+
+//tf test_bitset
+/// Check that bits can be set and cleared individually
+#[test]
+fn test_bitset_and_or() {
+    let mut bit_pairs = vec![];
+    let mut bits_to_set_a = vec![];
+    let mut bits_to_set_b = vec![];
+    let mut seed: std::num::Wrapping<u32> = std::num::Wrapping(0x12345678);
+    for i in 0..800 {
+        seed = seed * std::num::Wrapping(1293) + std::num::Wrapping(3) + (seed >> 16);
+        let a = seed & std::num::Wrapping(1 << 30) != std::num::Wrapping(0);
+        let b = seed & std::num::Wrapping(1 << 14) != std::num::Wrapping(0);
+        if a {
+            bits_to_set_a.push(i);
+        }
+        if b {
+            bits_to_set_b.push(i);
+        }
+        bit_pairs.push((a, b));
+    }
+    for i in 0..10 {
+        for j in 62..65 {
+            let n = 64 * i + j;
+            let mut x: BitSet<usize> = BitSet::none(n);
+            let mut y: BitSet<usize> = BitSet::none(n);
+
+            for a in &bits_to_set_a {
+                if *a >= n {
+                    break;
+                }
+                x.set(*a, true);
+            }
+            for b in &bits_to_set_b {
+                if *b >= n {
+                    break;
+                }
+                y.set(*b, true);
+            }
+            // eprintln!("{x:?}, {y:?}");
+            let x_and_y = &x & &y;
+            let x_or_y = &x | &y;
+            let mut not_x_nor_y = x_or_y.clone();
+            not_x_nor_y.complement();
+            for (i, (a, b)) in bit_pairs.iter().enumerate() {
+                if i >= n {
+                    break;
+                }
+                assert_eq!(*a, x.is_set(i));
+                assert_eq!(*b, y.is_set(i));
+                assert_eq!(*a & *b, x_and_y.is_set(i));
+                assert_eq!(*a | *b, x_or_y.is_set(i));
+                assert_eq!(!*a & !*b, not_x_nor_y.is_set(i));
             }
         }
     }
