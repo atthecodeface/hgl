@@ -1,4 +1,4 @@
 pub mod bit_ops;
-// pub mod cpu_timer;
+pub mod bit_set;
 pub mod fmt;
 pub mod refs;

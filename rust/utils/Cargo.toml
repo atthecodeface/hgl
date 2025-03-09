@@ -13,3 +13,4 @@ description = "Miscellaneous utilities used internally be hgl"
 [dependencies]
 serde.workspace = true
 thiserror.workspace = true
+hgl_indexed_vec.workspace = true
