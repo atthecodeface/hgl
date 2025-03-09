@@ -8,12 +8,15 @@ use crate::simulation::{
     Name, Names, RefInstance, RefMutInstance, SimNsName, SimStateIndex, Simulation,
     SimulationContents, StateDesc,
 };
-use crate::traits::{Component, Simulatable};
+use crate::traits::{Component, SimHandle, Simulatable};
 use crate::values::fmt;
 
 //a InstanceHandle
 //tp InstanceHandle
 make_index!(InstanceHandle, usize);
+
+//ip SimHandle for InstanceHandle
+impl SimHandle for InstanceHandle {}
 
 //a Instance
 //tp Instance

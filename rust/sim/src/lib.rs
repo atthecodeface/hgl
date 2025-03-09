@@ -164,6 +164,7 @@
 //!
 
 //a Modules
+pub mod component_desc;
 pub(crate) mod data;
 pub mod prelude;
 pub(crate) mod simulation;
