@@ -1,4 +1,5 @@
 //a Imports
+use crate::Register;
 use hgl_sim::prelude::component::*;
 
 //a STATE_INFO, Inputs, Outputs
@@ -19,9 +20,9 @@ where
 {
     #[allow(dead_code)]
     clk: (),
-    pub reset_n: Bit,
-    pub enable: Bit,
-    pub data: V,
+    reset_n: Bit,
+    enable: Bit,
+    data: V,
 }
 
 //tp Outputs
@@ -30,39 +31,44 @@ pub struct Outputs<V>
 where
     V: SimCopyValue,
 {
-    pub data: V,
+    data: V,
 }
 
-//a Register
-//tp Register
+//a RegisterWrapper
+//tp RegisterWrapper
 #[derive(Debug, Default)]
-pub struct Register<V>
+pub struct RegisterWrapper<V>
 where
     V: SimCopyValue,
 {
-    pub reset_value: Option<V>,
-    pub inputs: Inputs<V>,
-    pub outputs: Outputs<V>,
+    inputs: Inputs<V>,
+    outputs: Outputs<V>,
+    register: Register<V>,
 }
 
-//ip Register
-impl<V> Register<V>
+//ip RegisterWrapper
+impl<V> RegisterWrapper<V>
 where
     V: SimCopyValue,
 {
     //cp new
-    /// Create a new [Register] with a given reset value (if not the
+    /// Create a new [RegisterWrapper] with a given reset value (if not the
     /// default)
-    pub fn new(reset_value: Option<V>) -> Self {
+    ///
+    /// Should return a result
+    pub fn new<S: SimRegister>(sim: &mut S, name: SimNsName) -> Self {
+        let register = sim
+            .instantiate::<Register<V>>("reg", || reset_value)
+            .unwrap();
         Self {
-            reset_value,
+            register,
             ..Default::default()
         }
     }
 }
 
-//ip Simulatable for Register
-impl<V> Simulatable for Register<V>
+//ip Simulatable for RegisterWrapper
+impl<V> Simulatable for RegisterWrapper<V>
 where
     V: SimCopyValue,
 {
@@ -82,8 +88,9 @@ where
     /// Reset the component
     ///
     /// The reason could be simulation restart, or something 'weaker'
-    fn reset(&mut self, _reason: SimReset) {
-        self.outputs.data = self.reset_value.unwrap_or_default();
+    fn reset(&mut self, reason: SimReset) {
+        self.register.reset(reason);
+        self.outputs.data = self.register.outputs.data;
     }
 
     //mp Clock
@@ -92,11 +99,11 @@ where
     /// This should use the values in its Inputs, and update its outputs.
     fn clock(&mut self, mask: SimEdgeMask) {
         if mask.is_posedge(0) {
-            if self.inputs.reset_n.is_false() {
-                self.outputs.data = self.reset_value.unwrap_or_default();
-            } else if self.inputs.enable.is_true() {
-                self.outputs.data = self.inputs.data;
-            }
+            self.register.inputs.reset_n = self.inputs.reset_n;
+            self.register.inputs.enable = self.inputs.enable;
+            self.register.inputs.data = self.inputs.data;
+            self.register.clock(SimEdgeMask::none().add_posedge(0));
+            self.outputs.data = self.register.outputs.data;
         }
     }
 
@@ -112,7 +119,13 @@ where
     /// 'stage' indicates which set of inputs will now be valid (hence
     /// it is increased on each call, starting at 0 for the first
     /// after a clock edge)
-    fn propagate(&mut self, _stage: usize) {}
+    fn propagate(&mut self, _stage: usize) {
+        self.register.inputs.reset_n = self.inputs.reset_n;
+        self.register.inputs.enable = self.inputs.enable;
+        self.register.inputs.data = self.inputs.data;
+        self.register.propagate(0);
+        self.outputs.data = self.register.inputs.data;
+    }
     fn state_info(&self, index: SimStateIndex) -> Option<SimStateInfo> {
         STATE_INFO.get(index.as_usize()).copied()
     }
@@ -136,8 +149,8 @@ where
     }
 }
 
-//ip Component for Register
-impl<V> Component for Register<V>
+//ip Component for RegisterWrapper
+impl<V> Component for RegisterWrapper<V>
 where
     V: SimCopyValue,
 {
@@ -158,22 +171,21 @@ where
         &mut self,
         sim: &mut S,
         handle: S::Handle,
-        config: Option<V>,
+        _config: Option<V>,
     ) -> Result<(), String> {
-        self.reset_value = config;
         sim.register_input_edge(handle, 0, true, false);
         sim.register_input_edge(handle, 1, false, true);
         Ok(())
     }
 }
 
-//ip ComponentBuilder for Register
-impl<V> ComponentBuilder for Register<V>
+//ip ComponentBuilder for RegisterWrapper
+impl<V> ComponentBuilder for RegisterWrapper<V>
 where
     V: SimCopyValue,
 {
     type Build = Self;
-    fn instantiate<S: SimRegister>(_sim: &mut S, _name: SimNsName) -> Self {
-        Self::default()
+    fn instantiate<S: SimRegister>(sim: &mut S, name: SimNsName) -> Self {
+        Self::new(sim, name)
     }
 }

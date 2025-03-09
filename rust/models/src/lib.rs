@@ -2,6 +2,7 @@
 mod counter;
 mod memories;
 mod register;
+// mod register_wrapper;
 mod threaded;
 
 pub mod alu;
@@ -16,4 +17,5 @@ pub use apb::*;
 pub use counter::Counter;
 pub use memories::Memory;
 pub use register::Register;
+// pub use register_wrapper::RegisterWrapper;
 pub use threaded::Threaded;
